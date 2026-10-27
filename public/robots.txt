@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /project
+Disallow: /settings
+Disallow: /estimate
+
+Sitemap: https://planpro-studio.vercel.app/sitemap.xml
