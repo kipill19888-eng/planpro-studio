@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, PlusCircle, Grid, LayoutGrid, FileDown, LayoutTemplate, Loader2, Ruler } from 'lucide-react';
+import { Play, PlusCircle, Grid, LayoutGrid, FileDown, LayoutTemplate, Loader2, Ruler, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useHouseStore, useRooms } from '../../store';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
 import { useMaterialsStore } from '../../storeMaterials';
+import { useWorksStore } from '../../storeWorks'; // 👈 Добавлен импорт
 import { useDraftsStore } from '../../storeDrafts';
+import { useAddToEstimate } from '../../hooks/useAddToEstimate';
 import RoomSelector from './RoomSelector';
 
 import fontUrl from '../../assets/fonts/Roboto-Regular.ttf';
@@ -19,7 +21,9 @@ export default function TileCalc() {
   const { addItem } = useEstimateStore();
   const { addToast } = useToastStore();
   const { getMaterialPrice } = useMaterialsStore();
+  const { getWorkPrice } = useWorksStore(); // 👈 Получаем метод
   const { drafts, saveDraft, clearDraft } = useDraftsStore();
+  const { isAdded, triggerAdd } = useAddToEstimate();
   const areas = getCalculatedAreas();
 
   const draftKey = 'calc-tile';
@@ -27,12 +31,10 @@ export default function TileCalc() {
 
   const [calcMode, setCalcMode] = useState(draft.calcMode || 'surface');
 
-  // --- Состояния для пола/стен ---
   const [selectedId, setSelectedId] = useState(draft.selectedId || 'all');
   const [surface, setSurface] = useState(draft.surface || 'floor');
   const [area, setArea] = useState(draft.area || areas.floorArea.toFixed(1));
 
-  // --- Состояния для лестницы ---
   const [stairStepsCount, setStairStepsCount] = useState(draft.stairStepsCount || '18');
   const [stairStepHeight, setStairStepHeight] = useState(draft.stairStepHeight || '150');
   const [stairStepWidth, setStairStepWidth] = useState(draft.stairStepWidth || '300');
@@ -40,7 +42,6 @@ export default function TileCalc() {
   const [stairCladdingType, setStairCladdingType] = useState(draft.stairCladdingType || 'full');
   const [stairOverhang, setStairOverhang] = useState(draft.stairOverhang || '20');
 
-  // --- Общие состояния для плитки ---
   const [tileWidth, setTileWidth] = useState(draft.tileWidth || '59.5');
   const [tileHeight, setTileHeight] = useState(draft.tileHeight || '59.5');
   const [layout, setLayout] = useState(draft.layout || 'straight');
@@ -52,8 +53,10 @@ export default function TileCalc() {
 
   const [showMap, setShowMap] = useState(false);
   const [showStairMap, setShowStairMap] = useState(false);
+  
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [mapSurface, setMapSurface] = useState('floor');
+  
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const mapRef = useRef(null);
@@ -73,11 +76,11 @@ export default function TileCalc() {
       setArea(surface === 'floor' ? areas.floorArea.toFixed(1) : areas.wallsArea.toFixed(1));
     }
     setResult(null);
-  }, [selectedId, surface, rooms, areas.floorArea, areas.wallsArea, calcMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, surface, rooms, areas.floorArea, areas.wallsArea, calcMode]);
 
   const handleRoomSelect = (id, newArea) => {
     setSelectedId(id);
-    if (newArea) {
+    if (newArea && typeof newArea === 'string') {
       setArea(newArea);
     }
   };
@@ -191,36 +194,37 @@ export default function TileCalc() {
       return;
     }
 
-    const materialPrice = getMaterialPrice('плитка', 'tile', 'material');
-    const gluePrice = getMaterialPrice('клей для плитки', 'tile', 'glue');
-    const groutPrice = getMaterialPrice('затирка', 'tile', 'grout');
-    const workPrice = getMaterialPrice('укладка плитки', 'tile', 'work');
+    triggerAdd(() => {
+      const materialPrice = getMaterialPrice('плитка', 'tile', 'material');
+      const gluePrice = getMaterialPrice('клей для плитки', 'tile', 'glue');
+      const groutPrice = getMaterialPrice('затирка', 'tile', 'grout');
+      // 👇 Берем цену из нового стора, если там нет - из старого справочника
+      const workPrice = getWorkPrice('w-tile') || getMaterialPrice('укладка плитки', 'tile', 'work');
 
-    if (result.type === 'surface') {
-      const surfaceName = surface === 'floor' ? 'Пол' : 'Стены';
-      let roomSuffix = '';
-      if (selectedId !== 'all') {
-        const activeGroup = rooms.find(r => (r.groupId || `single-${r.id}`) === selectedId);
-        if (activeGroup) roomSuffix = ` (${activeGroup.name})`;
+      if (result.type === 'surface') {
+        const surfaceName = surface === 'floor' ? 'Пол' : 'Стены';
+        let roomSuffix = '';
+        if (selectedId !== 'all') {
+          const activeGroup = rooms.find(r => (r.groupId || `single-${r.id}`) === selectedId);
+          if (activeGroup) roomSuffix = ` (${activeGroup.name})`;
+        }
+
+        addItem({ name: `Плитка ${result.w}x${result.h} см [${surfaceName}]${roomSuffix}`, unit: 'м²', quantity: Math.ceil(result.totalArea), materialPrice: materialPrice, workPrice: 0 });
+        addItem({ name: `Клей для плитки [${surfaceName}]${roomSuffix}`, unit: 'меш. (25 кг)', quantity: result.glueBags, materialPrice: gluePrice, workPrice: 0 });
+        addItem({ name: `Затирка для швов (${groutWidth} мм) [${surfaceName}]${roomSuffix}`, unit: 'кг', quantity: Math.ceil(parseFloat(result.groutKg)), materialPrice: groutPrice, workPrice: 0 });
+        addItem({ name: `Работа: Укладка плитки [${surfaceName}]${roomSuffix}`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
+        
+      } else {
+        const claddingName = stairCladdingType === 'full' ? 'ступени + подступенки' : stairCladdingType === 'tread' ? 'только ступени' : 'только подступенки';
+        
+        addItem({ name: `Плитка для лестницы ${tileWidth}x${tileHeight} см (${claddingName})`, unit: 'м²', quantity: Math.ceil(result.totalArea), materialPrice: materialPrice, workPrice: 0 });
+        addItem({ name: `Клей для плитки (лестница)`, unit: 'меш. (25 кг)', quantity: result.glueBags, materialPrice: gluePrice, workPrice: 0 });
+        addItem({ name: `Затирка для швов (лестница)`, unit: 'кг', quantity: Math.ceil(parseFloat(result.groutKg)), materialPrice: groutPrice, workPrice: 0 });
+        addItem({ name: `Работа: Облицовка лестницы плиткой`, unit: 'м²', quantity: Math.ceil(result.totalArea), materialPrice: 0, workPrice: workPrice * 1.2 });
       }
 
-      addItem({ name: `Плитка ${result.w}x${result.h} см [${surfaceName}]${roomSuffix}`, unit: 'м²', quantity: Math.ceil(result.totalArea), materialPrice: materialPrice, workPrice: 0 });
-      addItem({ name: `Клей для плитки [${surfaceName}]${roomSuffix}`, unit: 'меш. (25 кг)', quantity: result.glueBags, materialPrice: gluePrice, workPrice: 0 });
-      addItem({ name: `Затирка для швов (${groutWidth} мм) [${surfaceName}]${roomSuffix}`, unit: 'кг', quantity: Math.ceil(parseFloat(result.groutKg)), materialPrice: groutPrice, workPrice: 0 });
-      addItem({ name: `Работа: Укладка плитки [${surfaceName}]${roomSuffix}`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
-      
-    } else {
-      const claddingName = stairCladdingType === 'full' ? 'ступени + подступенки' : stairCladdingType === 'tread' ? 'только ступени' : 'только подступенки';
-      
-      addItem({ name: `Плитка для лестницы ${tileWidth}x${tileHeight} см (${claddingName})`, unit: 'м²', quantity: Math.ceil(result.totalArea), materialPrice: materialPrice, workPrice: 0 });
-      addItem({ name: `Клей для плитки (лестница)`, unit: 'меш. (25 кг)', quantity: result.glueBags, materialPrice: gluePrice, workPrice: 0 });
-      addItem({ name: `Затирка для швов (лестница)`, unit: 'кг', quantity: Math.ceil(parseFloat(result.groutKg)), materialPrice: groutPrice, workPrice: 0 });
-      addItem({ name: `Работа: Облицовка лестницы плиткой`, unit: 'м²', quantity: Math.ceil(result.totalArea), materialPrice: 0, workPrice: workPrice * 1.2 });
-    }
-
-    clearDraft(draftKey);
-    setResult(null);
-    addToast('Плитка добавлена в смету.');
+      clearDraft(draftKey);
+    });
   };
 
   const getIntersection = (r1, r2) => {
@@ -350,7 +354,7 @@ export default function TileCalc() {
         const isWidthCut = wMm < Math.round(tileW * 1000) - 1;
         const isHeightCut = hMm < Math.round(tileH * 1000) - 1;
 
-        let currentFontSize = 9; // Базовый размер (было 12)
+        let currentFontSize = 9;
         if (drawW < 50 || drawH < 50) currentFontSize = 7;
         if (drawW < 35 || drawH < 35) currentFontSize = 6;
         if (drawW < 25 || drawH < 25) currentFontSize = 5;
@@ -458,11 +462,16 @@ export default function TileCalc() {
           const wMm = Math.round(curW / scale);
           const hMm = Math.round(curH / scale);
 
+          let fontSize = 12;
+          if (curW < 40 || curH < 40) fontSize = 10;
+          if (curW < 25 || curH < 25) fontSize = 8;
+          if (curW < 15 || curH < 15) fontSize = 6;
+
           tiles.push(
             <g key={`${r}-${c}`}>
               <rect x={x} y={y} width={curW} height={curH} fill={isCut ? '#ef4444' : '#bfdbfe'} stroke="#475569" strokeWidth="1" />
-              {isCut && curW > 20 && <text x={x + curW / 2} y={y + 3} fill="white" fontSize="10" fontWeight="bold" textAnchor="middle" dominantBaseline="hanging" style={{ paintOrder: 'stroke', stroke: '#ef4444', strokeWidth: 2 }}>{wMm}</text>}
-              {isCut && curH > 20 && <text x={x + 3} y={y + curH / 2} fill="white" fontSize="10" fontWeight="bold" textAnchor="middle" dominantBaseline="middle" transform={`rotate(-90, ${x + 3}, ${y + curH / 2})`} style={{ paintOrder: 'stroke', stroke: '#ef4444', strokeWidth: 2 }}>{hMm}</text>}
+              {isCut && curW > 20 && <text x={x + curW / 2} y={y + 3} fill="white" fontSize={fontSize} fontWeight="bold" textAnchor="middle" dominantBaseline="hanging" style={{ paintOrder: 'stroke', stroke: '#ef4444', strokeWidth: 2 }}>{wMm}</text>}
+              {isCut && curH > 20 && <text x={x + 3} y={y + curH / 2} fill="white" fontSize={fontSize} fontWeight="bold" textAnchor="middle" dominantBaseline="middle" transform={`rotate(-90, ${x + 3}, ${y + curH / 2})`} style={{ paintOrder: 'stroke', stroke: '#ef4444', strokeWidth: 2 }}>{hMm}</text>}
             </g>
           );
         }
@@ -555,25 +564,30 @@ export default function TileCalc() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Площадь (м²)</label>
                 <input type="number" value={area} onChange={(e) => setArea(e.target.value)} className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-md focus:border-primary outline-none font-bold text-lg text-primary bg-white dark:bg-[#0f172a]" />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Ширина (см)</label><input type="number" step="0.1" value={tileWidth} onChange={(e) => setTileWidth(e.target.value)} className="w-full p-2.5 border rounded-md bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" /></div>
                 <div><label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Высота (см)</label><input type="number" step="0.1" value={tileHeight} onChange={(e) => setTileHeight(e.target.value)} className="w-full p-2.5 border rounded-md bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" /></div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Укладка</label><select value={layout} onChange={(e) => setLayout(e.target.value)} className="w-full p-2.5 border rounded-md bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"><option value="straight">Прямая</option><option value="diagonal">Диагональ</option></select></div>
                 <div><label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Шов (мм)</label><input type="number" step="0.5" value={groutWidth} onChange={(e) => setGroutWidth(e.target.value)} className="w-full p-2.5 border rounded-md bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" /></div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Смещение X (см)</label><input type="number" step="0.5" value={offsetXcm} onChange={(e) => setOffsetXcm(e.target.value)} className="w-full p-2.5 border rounded-md bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" /></div>
                 <div><label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Смещение Y (см)</label><input type="number" step="0.5" value={offsetYcm} onChange={(e) => setOffsetYcm(e.target.value)} className="w-full p-2.5 border rounded-md bg-white dark:bg-[#0f172a] text-gray-900 dark:text-white border-gray-300 dark:border-gray-600" /></div>
               </div>
+
               <div className="flex gap-2 mt-2">
                 <button onClick={handleCalc} className="flex-1 py-3 bg-primary text-white rounded-md flex items-center justify-center gap-2 font-bold hover:bg-blue-700"><Play size={18}/> Рассчитать</button>
                 <button onClick={() => setShowMap(!showMap)} className={`flex-1 py-3 rounded-md flex items-center justify-center gap-2 font-bold border transition ${showMap ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
-                  <LayoutTemplate size={18}/> Карта
+                  <LayoutTemplate size={18}/> Карта подрезки
                 </button>
               </div>
             </div>
+
             <div>
               {!result ? (
                 <div className="h-full bg-gray-50 dark:bg-[#0f172a] border border-dashed rounded-xl flex flex-col items-center justify-center text-gray-400 p-6 min-h-[200px]">Нажмите «Рассчитать»</div>
@@ -584,7 +598,9 @@ export default function TileCalc() {
                     <div className="bg-gray-50 dark:bg-[#1e293b] p-3 rounded-lg border"><span className="text-xs text-gray-500 block">Всего плиток</span><span className="text-xl font-bold text-gray-800 dark:text-white">{result.totalTiles} шт</span></div>
                   </div>
                   <div className="text-xs text-primary font-medium">Цена плитки: {getMaterialPrice('плитка', 'tile', 'material')} ₽/м²</div>
-                  <button onClick={addToEstimate} className="w-full py-2.5 bg-green-600 text-white rounded-md flex items-center justify-center gap-2 hover:bg-green-700"><PlusCircle size={18}/> В смету</button>
+                  <button onClick={addToEstimate} disabled={isAdded} className={`w-full py-2.5 rounded-md mt-2 flex items-center justify-center gap-2 font-medium transition ${isAdded ? 'bg-green-100 text-green-700 border border-green-300 cursor-default' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+                    {isAdded ? <><Check size={18}/> Добавлено!</> : <><PlusCircle size={18}/> В смету</>}
+                  </button>
                 </div>
               )}
             </div>
@@ -593,12 +609,13 @@ export default function TileCalc() {
           {showMap && (
             <div className="mt-8 border-t pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Карта укладки (подрезка красным, размеры в мм)</h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Карта подрезки (размеры в мм)</h3>
                 <button onClick={() => downloadPDF(mapRef, activeRoomForMap?.name || 'room')} disabled={isGeneratingPdf} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium text-white ${isGeneratingPdf ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-800 hover:bg-gray-900'}`}>
                   {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                   {isGeneratingPdf ? 'Создание PDF...' : 'Скачать PDF'}
                 </button>
               </div>
+              
               <div className="flex flex-wrap gap-4 mb-6 bg-gray-50 dark:bg-[#1e293b] p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                 <div>
                   <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1 uppercase">Комната</label>
@@ -618,6 +635,7 @@ export default function TileCalc() {
                   </select>
                 </div>
               </div>
+
               {activeRoomForMap ? (
                 <div ref={mapRef} className="p-8 bg-gray-100 dark:bg-[#0f172a] rounded-xl border border-gray-300 dark:border-gray-700 flex justify-center w-full">
                   {renderMapSVG()}
@@ -667,7 +685,7 @@ export default function TileCalc() {
             <div className="flex gap-2 mt-2">
               <button onClick={handleCalc} className="flex-1 py-3 bg-primary text-white rounded-md flex items-center justify-center gap-2 font-bold hover:bg-blue-700"><Play size={18}/> Рассчитать</button>
               <button onClick={() => setShowStairMap(!showStairMap)} className={`flex-1 py-3 rounded-md flex items-center justify-center gap-2 font-bold border transition ${showStairMap ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
-                <LayoutTemplate size={18}/> Карта
+                <LayoutTemplate size={18}/> Карта подрезки
               </button>
             </div>
           </div>
@@ -693,7 +711,9 @@ export default function TileCalc() {
                   <div className="flex justify-between"><span>Клей:</span><span>{result.glueBags} меш.</span></div>
                   <div className="flex justify-between"><span>Затирка:</span><span>{result.groutKg} кг</span></div>
                 </div>
-                <button onClick={addToEstimate} className="w-full py-2.5 bg-green-600 text-white rounded-md flex items-center justify-center gap-2 hover:bg-green-700"><PlusCircle size={18}/> В смету</button>
+                <button onClick={addToEstimate} disabled={isAdded} className={`w-full py-2.5 rounded-md mt-2 flex items-center justify-center gap-2 font-medium transition ${isAdded ? 'bg-green-100 text-green-700 border border-green-300 cursor-default' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+                  {isAdded ? <><Check size={18}/> Добавлено!</> : <><PlusCircle size={18}/> В смету</>}
+                </button>
               </div>
             )}
           </div>
@@ -703,7 +723,7 @@ export default function TileCalc() {
       {calcMode === 'stair' && showStairMap && (
         <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Карта раскладки ступеней (подрезка красным, размеры в мм)</h3>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">Карта подрезки ступеней (размеры в мм)</h3>
             <button onClick={() => downloadPDF(stairMapRef, 'stair')} disabled={isGeneratingPdf} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium text-white ${isGeneratingPdf ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-800 hover:bg-gray-900'}`}>
               {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
               {isGeneratingPdf ? 'Создание PDF...' : 'Скачать PDF'}

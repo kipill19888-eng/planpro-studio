@@ -7,7 +7,8 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
-import { PRICES } from '../../constants/prices'; // <-- Импорт цен
+import { useWorksStore } from '../../storeWorks'; // 👈 Добавлен импорт
+import { PRICES } from '../../constants/prices';
 
 const applianceTypes = {
   stove: { name: 'Варочная панель', icon: Flame, wet: false },
@@ -76,6 +77,7 @@ const initialFloors = [
 export default function ShieldConfigurator() {
   const { addItem } = useEstimateStore();
   const { addToast } = useToastStore();
+  const { getWorkPrice } = useWorksStore(); // 👈 Получаем метод для работы
 
   const [floors, setFloors] = useState(() => {
     const saved = localStorage.getItem('planpro-shield-floors');
@@ -90,7 +92,8 @@ export default function ShieldConfigurator() {
   }, [floors]);
 
   const [socketPower, setSocketPower] = useState(300);
-  const [switchPower] = useState(100);
+  const [switchPower, setSwitchPower] = useState(100);
+  
   const [viewTab, setViewTab] = useState('settings');
   const [cableMaterial, setCableMaterial] = useState('copper');
   const [hasMeter, setHasMeter] = useState(true);
@@ -238,12 +241,15 @@ export default function ShieldConfigurator() {
       return;
     }
 
+    // 👇 Получаем цену работы из нового стора
+    const workPrice = getWorkPrice('w-electric') || PRICES.electric.workLine;
+
     schemaNodes.forEach(node => {
       addItem({
         name: `Кабель ${node.cable} мм² (${node.name})`,
         unit: 'м',
         quantity: 20,
-        materialPrice: PRICES.electric.cable[Number(node.cable)] || 100, // <-- Из констант
+        materialPrice: PRICES.electric.cable[Number(node.cable)] || 100,
         workPrice: 0
       });
 
@@ -251,7 +257,7 @@ export default function ShieldConfigurator() {
         name: `Автомат ${node.breaker}А (${node.name})`,
         unit: 'шт',
         quantity: 1,
-        materialPrice: PRICES.electric.breaker, // <-- Из констант
+        materialPrice: PRICES.electric.breaker,
         workPrice: 0
       });
 
@@ -260,7 +266,7 @@ export default function ShieldConfigurator() {
           name: `Дифавтомат 30мА (${node.name})`,
           unit: 'шт',
           quantity: 1,
-          materialPrice: PRICES.electric.dif, // <-- Из констант
+          materialPrice: PRICES.electric.dif,
           workPrice: 0
         });
       }
@@ -270,7 +276,7 @@ export default function ShieldConfigurator() {
         unit: 'точка',
         quantity: 1,
         materialPrice: 0,
-        workPrice: PRICES.electric.workLine // <-- Из констант
+        workPrice: workPrice
       });
     });
 
@@ -331,6 +337,16 @@ export default function ShieldConfigurator() {
                   className="w-24 p-2 border rounded-md text-base"
                 />
               </div>
+              
+              <div className="flex items-center gap-4">
+                <label className="text-base text-gray-700 font-medium">Мощность на 1 светильник (Вт):</label>
+                <input
+                  type="number" value={switchPower}
+                  onChange={(e) => setSwitchPower(Number(e.target.value))}
+                  className="w-24 p-2 border rounded-md text-base"
+                />
+              </div>
+
               <div className="flex items-center gap-4">
                 <label className="text-base text-gray-700 font-medium flex items-center gap-2">Материал жилы:</label>
                 <select

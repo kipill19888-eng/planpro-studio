@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Play, PlusCircle } from 'lucide-react';
+import { Play, PlusCircle, Check } from 'lucide-react';
 import { useHouseStore, useRooms } from '../../store';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
 import { useMaterialsStore } from '../../storeMaterials';
 import { useWorksStore } from '../../storeWorks';
 import { useDraftsStore } from '../../storeDrafts';
+import { useAddToEstimate } from '../../hooks/useAddToEstimate';
 import RoomSelector from './RoomSelector';
 
 export default function LaminateCalc() {
@@ -16,6 +17,7 @@ export default function LaminateCalc() {
   const { getMaterialPrice } = useMaterialsStore();
   const { getWorkPrice } = useWorksStore();
   const { drafts, saveDraft, clearDraft } = useDraftsStore();
+  const { isAdded, triggerAdd } = useAddToEstimate();
   const areas = getCalculatedAreas();
 
   const draftKey = 'calc-laminate';
@@ -43,7 +45,7 @@ export default function LaminateCalc() {
       setPerimeter(areas.perimeter.toFixed(1));
     }
     setResult(null);
-  }, [selectedId, rooms, areas.floorArea, areas.perimeter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, rooms, areas.floorArea, areas.perimeter]);
 
   const handleRoomSelect = (id, newArea) => {
     setSelectedId(id);
@@ -76,29 +78,26 @@ export default function LaminateCalc() {
   };
 
   const addToEstimate = () => {
-    if (!result) {
-      addToast('Сначала нажмите «Рассчитать»', 'error');
-      return;
-    }
+    if (!result) return;
 
-    const basePrice = getMaterialPrice('ламинат', 'laminate', 'pack');
-    const finalPackPrice = priceUnit === 'sqm' ? basePrice * parseFloat(packArea) : basePrice;
+    triggerAdd(() => {
+      const basePrice = getMaterialPrice('ламинат', 'laminate', 'pack');
+      const finalPackPrice = priceUnit === 'sqm' ? basePrice * parseFloat(packArea) : basePrice;
 
-    const underlayPrice = getMaterialPrice('подложка', 'laminate', 'underlay');
-    const plinthPrice = getMaterialPrice('плинтус', 'laminate', 'plinth');
-    
-    const workPrice = layout === 'straight' 
-      ? getWorkPrice('laminateStraight')
-      : getWorkPrice('laminateDiagonal');
+      const underlayPrice = getMaterialPrice('подложка', 'laminate', 'underlay');
+      const plinthPrice = getMaterialPrice('плинтус', 'laminate', 'plinth');
+      
+      const workPrice = layout === 'straight' 
+        ? getWorkPrice('w-lam-straight')
+        : getWorkPrice('w-lam-diag');
 
-    addItem({ name: `Ламинат (упаковка ${packArea} м²)`, unit: 'уп.', quantity: result.packs, materialPrice: Math.round(finalPackPrice), workPrice: 0 });
-    addItem({ name: `Подложка под ламинат (рулон 15 м²)`, unit: 'рул.', quantity: result.underlayRolls, materialPrice: underlayPrice, workPrice: 0 });
-    addItem({ name: `Плинтус (2.5 м)`, unit: 'шт', quantity: result.plinthCount, materialPrice: plinthPrice, workPrice: 0 });
-    addItem({ name: `Работа: Укладка ламината (${layout === 'straight' ? 'прямая' : 'диагональ'})`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
+      addItem({ name: `Ламинат (упаковка ${packArea} м²)`, unit: 'уп.', quantity: result.packs, materialPrice: Math.round(finalPackPrice), workPrice: 0 });
+      addItem({ name: `Подложка под ламинат (рулон 15 м²)`, unit: 'рул.', quantity: result.underlayRolls, materialPrice: underlayPrice, workPrice: 0 });
+      addItem({ name: `Плинтус (2.5 м)`, unit: 'шт', quantity: result.plinthCount, materialPrice: plinthPrice, workPrice: 0 });
+      addItem({ name: `Работа: Укладка ламината (${layout === 'straight' ? 'прямая' : 'диагональ'})`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
 
-    clearDraft(draftKey);
-    setResult(null);
-    addToast('Ламинат добавлен в смету.');
+      clearDraft(draftKey);
+    });
   };
 
   const currentBasePrice = getMaterialPrice('ламинат', 'laminate', 'pack');
@@ -196,8 +195,8 @@ export default function LaminateCalc() {
             </div>
           </div>
 
-          <button onClick={addToEstimate} className="w-full py-2.5 bg-green-600 text-white rounded-md mt-2 flex items-center justify-center gap-2 font-medium hover:bg-green-700 transition">
-            <PlusCircle size={18}/> Добавить в смету
+          <button onClick={addToEstimate} disabled={isAdded} className={`w-full py-2.5 rounded-md mt-2 flex items-center justify-center gap-2 font-medium transition ${isAdded ? 'bg-green-100 text-green-700 border border-green-300 cursor-default' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+            {isAdded ? <><Check size={18}/> Добавлено!</> : <><PlusCircle size={18}/> Добавить в смету</>}
           </button>
         </div>
       )}

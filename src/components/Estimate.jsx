@@ -1,10 +1,13 @@
 import { useRef, useState, useMemo } from 'react';
-import { Trash2, FileText, Download, Loader2, ArrowUpDown, Lock, User, X } from 'lucide-react';
+import { Trash2, FileText, Download, Loader2, ArrowUpDown, Lock, User, FileSpreadsheet } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { useEstimateStore } from '../storeEstimate';
 import { useUserStore } from '../storeUser';
 import { useClientsStore } from '../storeClients';
 import { useProjectsStore } from '../storeProjects';
+import { useToastStore } from '../storeToast';
 import UpgradeModal from './UpgradeModal';
 
 export default function Estimate() {
@@ -14,14 +17,14 @@ export default function Estimate() {
   const { removeItem, updateItem, clearEstimate } = useEstimateStore();
   const projectEstimates = useEstimateStore(s => s.projectEstimates);
 
-  // Вычисляем элементы реактивно, без useEffect
   const items = useMemo(
     () => projectEstimates[activeProjectId] || [],
     [projectEstimates, activeProjectId]
   );
 
-  const { isPro } = useUserStore();
+  const { canExportPDF, canExportExcel, isDemoExpired } = useUserStore();
   const { clients } = useClientsStore();
+  const { addToast } = useToastStore();
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [sortBy, setSortBy] = useState('default');
@@ -30,6 +33,9 @@ export default function Estimate() {
 
   const printRef = useRef(null);
   const activeClient = clients.find(c => c.id === selectedClientId);
+
+  const canPdf = canExportPDF();
+  const canExcel = canExportExcel();
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -42,11 +48,28 @@ export default function Estimate() {
   }, [items, sortBy]);
 
   const handleDownloadClick = () => {
-    if (!isPro) {
+    if (isDemoExpired()) {
+      addToast('Демо-режим истек. Купите тариф для скачивания.', 'error');
+      return;
+    }
+    if (!canPdf) {
       setShowUpgradeModal(true);
       return;
     }
     downloadPDF();
+  };
+
+  const handleExcelClick = () => {
+    if (isDemoExpired()) {
+      addToast('Демо-режим истек. Купите тариф для скачивания.', 'error');
+      return;
+    }
+    if (!canExcel) {
+      addToast('Excel доступен на тарифе «Мастер Стройки» и выше.', 'error');
+      setShowUpgradeModal(true);
+      return;
+    }
+    exportToExcel();
   };
 
   const downloadPDF = async () => {
@@ -72,6 +95,120 @@ export default function Estimate() {
     }
   };
 
+  const exportToExcel = async () => {
+    if (items.length === 0) {
+      alert('Смета пуста. Добавьте материалы из калькуляторов.');
+      return;
+    }
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Смета');
+
+      worksheet.columns = [
+        { width: 5 }, { width: 45 }, { width: 10 }, { width: 12 }, { width: 18 }, { width: 18 }, { width: 18 }
+      ];
+
+      const titleRow = worksheet.addRow(['СМЕТА ПРОЕКТА']);
+      titleRow.font = { size: 18, bold: true };
+      titleRow.alignment = { horizontal: 'center' };
+      worksheet.mergeCells('A1:G1');
+
+      const projectRow = worksheet.addRow([`Проект: ${activeProject?.name || 'Без названия'}`]);
+      projectRow.font = { size: 12, bold: true };
+      projectRow.alignment = { horizontal: 'center' };
+      worksheet.mergeCells('A2:G2');
+
+      const dateRow = worksheet.addRow([`Дата: ${new Date().toLocaleDateString('ru-RU')}`]);
+      dateRow.font = { size: 10 };
+      dateRow.alignment = { horizontal: 'center' };
+      worksheet.mergeCells('A3:G3');
+
+      if (activeClient) {
+        const clientRow = worksheet.addRow([`Заказчик: ${activeClient.name}`]);
+        clientRow.font = { size: 10 };
+        clientRow.alignment = { horizontal: 'center' };
+        worksheet.mergeCells('A4:G4');
+      }
+
+      worksheet.addRow([]);
+
+      const headerRow = worksheet.addRow([
+        '№', 'Наименование', 'Кол-во', 'Ед. изм.', 'Цена материала (₽)', 'Цена работы (₽)', 'Итого (₽)'
+      ]);
+      
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      sortedItems.forEach((item, index) => {
+        const lineTotal = ((item.materialPrice || 0) + (item.workPrice || 0)) * (item.quantity || 0);
+        const row = worksheet.addRow([
+          index + 1, item.name, item.quantity, item.unit || '',
+          item.materialPrice || 0, item.workPrice || 0, lineTotal
+        ]);
+
+        row.eachCell((cell, colNumber) => {
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
+          };
+          if (colNumber === 2) cell.alignment = { wrapText: true, vertical: 'top' };
+          if (colNumber >= 5) cell.alignment = { horizontal: 'right' };
+        });
+      });
+
+      worksheet.addRow([]);
+
+      const totals = items.reduce((acc, item) => {
+        const mat = (item.materialPrice || 0) * (item.quantity || 0);
+        const work = (item.workPrice || 0) * (item.quantity || 0);
+        acc.materials += mat;
+        acc.work += work;
+        acc.grandTotal += mat + work;
+        return acc;
+      }, { materials: 0, work: 0, grandTotal: 0 });
+
+      const matRow = worksheet.addRow(['', '', '', '', '', 'Итого материалы:', totals.materials]);
+      matRow.font = { bold: true };
+      const workRow = worksheet.addRow(['', '', '', '', '', 'Итого работы:', totals.work]);
+      workRow.font = { bold: true };
+      const totalRow = worksheet.addRow(['', '', '', '', '', 'ВСЕГО:', totals.grandTotal]);
+      totalRow.font = { bold: true, size: 14 };
+
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+      
+      const signRow1 = worksheet.addRow(['', 'Исполнитель: _______________________', '', '', 'Заказчик: _______________________']);
+      worksheet.mergeCells(`B${signRow1.number}:C${signRow1.number}`);
+      worksheet.mergeCells(`E${signRow1.number}:F${signRow1.number}`);
+      
+      worksheet.addRow([]);
+      
+      const signRow2 = worksheet.addRow(['', 'Подпись: _______________________', '', '', 'Подпись: _______________________']);
+      worksheet.mergeCells(`B${signRow2.number}:C${signRow2.number}`);
+      worksheet.mergeCells(`E${signRow2.number}:F${signRow2.number}`);
+
+      worksheet.addRow([]);
+      const footerRow = worksheet.addRow(['Смета сформирована автоматически в PlanPro Studio']);
+      footerRow.font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+      footerRow.alignment = { horizontal: 'center' };
+      worksheet.mergeCells(`A${footerRow.number}:G${footerRow.number}`);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Смета_${activeProject?.name || 'Проект'}${activeClient ? '_' + activeClient.name : ''}.xlsx`);
+
+    } catch (error) {
+      console.error("Ошибка при создании Excel:", error);
+      alert("Не удалось создать Excel. Попробуйте еще раз.");
+    }
+  };
+
   const totals = useMemo(() => {
     let materials = 0, work = 0;
     items.forEach(item => {
@@ -85,7 +222,6 @@ export default function Estimate() {
     <>
       <div className="flex flex-col w-full bg-white rounded-xl border border-gray-200 p-3 md:p-6 print:border-0 print:rounded-none print:p-0 animate-fade-in">
 
-        {/* Ультра-компактная шапка */}
         <div className="flex items-center justify-between gap-2 mb-3 print:hidden">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-1 shrink-0">
@@ -98,28 +234,48 @@ export default function Estimate() {
             )}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <button onClick={clearEstimate} className="p-2 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition" title="Очистить">
-              <X size={16} />
+          {/* 👇 Увеличенные кнопки */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button 
+              onClick={clearEstimate} 
+              className="p-2.5 text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition" 
+              title="Очистить"
+            >
+              <Trash2 size={20} />
             </button>
+            
+            <button
+              onClick={handleExcelClick}
+              disabled={items.length === 0}
+              className={`p-2.5 rounded-lg transition flex items-center justify-center ${
+                items.length === 0
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : canExcel
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-yellow-100 text-yellow-600 border border-yellow-300 hover:bg-yellow-200'
+              }`}
+              title={canExcel ? 'Скачать Excel' : 'Excel доступен на тарифе «Мастер Стройки»'}
+            >
+              {canExcel ? <FileSpreadsheet size={20} /> : <Lock size={20} className="text-yellow-600" />}
+            </button>
+
             <button
               onClick={handleDownloadClick}
               disabled={isGeneratingPdf || items.length === 0}
-              className={`p-2 rounded-lg transition text-white flex items-center justify-center ${
+              className={`p-2.5 rounded-lg transition text-white flex items-center justify-center ${
                 isGeneratingPdf || items.length === 0
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : isPro
+                  : canPdf
                     ? 'bg-gray-800 hover:bg-gray-900'
                     : 'bg-yellow-500 hover:bg-yellow-600'
               }`}
-              title="Скачать PDF"
+              title={canPdf ? 'Скачать PDF' : 'Купите тариф для PDF'}
             >
-              {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : (isPro ? <Download size={16}/> : <Lock size={16}/>)}
+              {isGeneratingPdf ? <Loader2 size={20} className="animate-spin" /> : (canPdf ? <Download size={20}/> : <Lock size={20}/>)}
             </button>
           </div>
         </div>
 
-        {/* Селекты в одну строку (тоже компактные) */}
         <div className="flex gap-2 mb-3 print:hidden">
           <div className="flex-1 flex items-center gap-1 bg-gray-50 rounded-md px-2 py-1 border text-xs">
             <User size={12} className="text-gray-400 shrink-0" />
@@ -151,7 +307,6 @@ export default function Estimate() {
           )}
         </div>
 
-        {/* Таблица со скроллом */}
         <div className="w-full overflow-x-auto border border-gray-200 rounded-lg">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-gray-400 py-10">
@@ -185,40 +340,39 @@ export default function Estimate() {
                         </td>
                         <td className="py-2 px-2 text-center">
                           <input
-                            type="number"
-                            min="0"
-                            step="any"
+                            type="number" min="0" step="any"
                             value={item.quantity || ''}
                             onChange={(e) => updateItem(item.id, 'quantity', Math.max(0, Number(e.target.value)))}
                             className="w-12 p-1 text-center border border-gray-200 rounded text-xs focus:border-primary outline-none print:border-0 print:p-0"
                             placeholder="0"
+                            disabled={isDemoExpired()}
                           />
                         </td>
                         <td className="py-2 px-2 text-right">
                           <input
-                            type="number"
-                            min="0"
+                            type="number" min="0"
                             value={item.materialPrice || ''}
                             onChange={(e) => updateItem(item.id, 'materialPrice', Math.max(0, Number(e.target.value)))}
                             className="w-16 p-1 text-right border border-gray-200 rounded text-xs focus:border-primary outline-none print:border-0 print:p-0"
                             placeholder="0"
+                            disabled={isDemoExpired()}
                           />
                         </td>
                         <td className="py-2 px-2 text-right">
                           <input
-                            type="number"
-                            min="0"
+                            type="number" min="0"
                             value={item.workPrice || ''}
                             onChange={(e) => updateItem(item.id, 'workPrice', Math.max(0, Number(e.target.value)))}
                             className="w-16 p-1 text-right border border-gray-200 rounded text-xs focus:border-primary outline-none bg-blue-50/30 print:border-0 print:p-0 print:bg-transparent"
                             placeholder="0"
+                            disabled={isDemoExpired()}
                           />
                         </td>
                         <td className="py-2 px-2 text-right font-bold text-gray-800">
                           {lineTotal.toLocaleString()}
                         </td>
                         <td className="py-2 px-2 text-center print:hidden">
-                          <button onClick={() => removeItem(item.id)} className="text-gray-400 hover:text-red-500 transition">
+                          <button onClick={() => removeItem(item.id)} className="text-gray-400 hover:text-red-500 transition" disabled={isDemoExpired()}>
                             <Trash2 size={14}/>
                           </button>
                         </td>
@@ -231,7 +385,6 @@ export default function Estimate() {
           )}
         </div>
 
-        {/* Итоги */}
         {items.length > 0 && (
           <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 flex flex-col gap-1.5 print:hidden shrink-0">
             <div className="flex justify-between text-xs text-gray-600">
@@ -249,7 +402,6 @@ export default function Estimate() {
           </div>
         )}
 
-        {/* Скрытый блок для PDF */}
         <div className="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none overflow-hidden" aria-hidden="true">
           <div ref={printRef} className="bg-white w-[210mm] text-black box-border pdf-text-fix" style={{ fontFamily: 'Arial, sans-serif', padding: '10px' }}>
             <div style={{ textAlign: 'center', borderBottom: '2px solid #1f2937', paddingBottom: '16px', marginBottom: '24px' }}>

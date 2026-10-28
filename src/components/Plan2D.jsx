@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useHouseStore, useActiveFloorRooms } from '../store';
 
-// Компонент числового инпута, который не ломается при стирании
 const NumericInput = ({ value, onChange, className, min = 0.1 }) => {
   const [localValue, setLocalValue] = useState(value ? String(value) : '');
 
@@ -30,7 +30,6 @@ const NumericInput = ({ value, onChange, className, min = 0.1 }) => {
   };
 
   const handleFocus = (e) => {
-    // Если при клике там "0", очищаем поле
     if (e.target.value === '0' || e.target.value === '0.0') {
       setLocalValue('');
     }
@@ -70,6 +69,9 @@ export default function Plan2D() {
 
   const [viewport, setViewport] = useState({ w: 800, h: 600 });
 
+  // 👇 Состояние для зума (масштаб)
+  const [zoom, setZoom] = useState(1);
+
   useEffect(() => {
     const update = () => {
       if (containerRef.current) {
@@ -83,6 +85,23 @@ export default function Plan2D() {
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // 👇 Обработка колесика мыши для зума
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(z => Math.min(Math.max(0.3, z + delta), 3));
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
   if (rooms.length === 0) {
@@ -108,7 +127,11 @@ export default function Plan2D() {
   const planWidth = maxX - minX;
   const planHeight = maxZ - minZ;
 
-  const scale = Math.min(viewport.w / planWidth, viewport.h / planHeight, 100);
+  // Базовый масштаб (вписывание в экран)
+  const baseScale = Math.min(viewport.w / planWidth, viewport.h / planHeight, 100);
+  // Итоговый масштаб с учетом зума
+  const scale = baseScale * zoom;
+
   const offsetX = (viewport.w / 2) - ((minX + maxX) / 2) * scale;
   const offsetZ = (viewport.h / 2) - ((minZ + maxZ) / 2) * scale;
 
@@ -241,6 +264,31 @@ export default function Plan2D() {
       onPointerLeave={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
+      {/* 👇 КНОПКИ ЗУМА */}
+      <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 bg-white dark:bg-[#1e293b] border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-1">
+        <button 
+          onClick={() => setZoom(z => Math.min(z + 0.2, 3))}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition"
+          title="Приблизить"
+        >
+          <ZoomIn size={18} />
+        </button>
+        <button 
+          onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition"
+          title="Отдалить"
+        >
+          <ZoomOut size={18} />
+        </button>
+        <button 
+          onClick={() => setZoom(1)}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition border-t border-gray-200 dark:border-gray-700"
+          title="Сбросить масштаб"
+        >
+          <Maximize size={18} />
+        </button>
+      </div>
+
       <svg
         width={viewport.w}
         height={viewport.h}

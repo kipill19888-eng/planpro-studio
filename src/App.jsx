@@ -1,5 +1,6 @@
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { X, AlertTriangle } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import CanvasArea from './components/CanvasArea';
@@ -16,23 +17,31 @@ import PricingPage from './pages/PricingPage';
 import SettingsPage from './pages/SettingsPage';
 import ClientsPage from './pages/ClientsPage';
 import ProjectsPage from './pages/ProjectsPage';
-import ForumPage from './pages/ForumPage'; // 👈 Импорт форума
+import ForumPage from './pages/ForumPage';
+import ChatPage from './pages/ChatPage'; // 👈 ИСПРАВЛЕННЫЙ ПУТЬ
 import WelcomeModal from './components/WelcomeModal';
 import InteractiveHelper from './components/InteractiveHelper';
 import Toast from './components/Toast';
 import BottomNav from './components/BottomNav';
 import { useThemeStore } from './storeTheme';
+import { useUserStore } from './storeUser';
 
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showProperties, setShowProperties] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isHelperOpen, setIsHelperOpen] = useState(false);
   const { initTheme } = useThemeStore();
+  
+  // 👇 Логика тарифов и демо
+  const { startDemo, isDemoExpired, subscriptionType } = useUserStore();
+  const isDemoExpiredFlag = isDemoExpired();
 
   useEffect(() => {
     initTheme();
-  }, [initTheme]);
+    startDemo(); // 👈 Запускаем демо-таймер при первом входе
+  }, [initTheme, startDemo]);
 
   const getCurrentScreen = () => {
     if (location.pathname === '/') return 'home';
@@ -48,7 +57,8 @@ export default function App() {
     if (location.pathname.startsWith('/pricing')) return 'pricing';
     if (location.pathname.startsWith('/settings')) return 'settings';
     if (location.pathname.startsWith('/clients')) return 'clients';
-    if (location.pathname.startsWith('/forum')) return 'forum'; // 👈 Экран форума
+    if (location.pathname.startsWith('/forum')) return 'forum';
+    if (location.pathname.startsWith('/chat')) return 'chat';
     return 'home';
   };
 
@@ -57,6 +67,7 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
     setIsMobileMenuOpen(false);
+    setIsHelperOpen(false);
   }, [location.pathname]);
 
   const handleNavigate = (screen) => {
@@ -73,10 +84,9 @@ export default function App() {
     else if (screen === 'pricing') navigate('/pricing');
     else if (screen === 'settings') navigate('/settings');
     else if (screen === 'clients') navigate('/clients');
-    else if (screen === 'forum') navigate('/forum'); // 👈 Навигация на форум
+    else if (screen === 'forum') navigate('/forum');
+    else if (screen === 'chat') navigate('/chat');
   };
-
-  const hideHelperOnMobile = location.pathname.includes('/calc/') || location.pathname.includes('/estimate');
 
   return (
     <div className="flex h-screen overflow-hidden relative">
@@ -93,9 +103,25 @@ export default function App() {
           onOpenMenu={() => setIsMobileMenuOpen(true)}
         />
 
+        {/* 👇 ПЛАШКА: ДЕМО ИСТЕКЛО */}
+        {isDemoExpiredFlag && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-2 flex items-center justify-center gap-3 text-sm text-yellow-800 dark:text-yellow-300 print:hidden">
+            <AlertTriangle size={16} className="shrink-0" />
+            <span>
+              Демо-режим истек. Вы можете только просматривать данные.
+            </span>
+            <Link 
+              to="/pricing" 
+              className="font-bold underline hover:text-yellow-900 dark:hover:text-yellow-100 transition whitespace-nowrap"
+            >
+              Купить тариф
+            </Link>
+          </div>
+        )}
+
         <Routes>
           <Route path="/" element={<HomePage onNavigate={handleNavigate} />} />
-
+          
           <Route path="/project" element={
             <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-hidden relative">
               <CanvasArea onShowProperties={() => setShowProperties(true)} />
@@ -103,106 +129,45 @@ export default function App() {
               <div 
                 className={`
                   fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity duration-300
-                  ${showProperties ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+                  ${showProperties ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
                 `} 
                 onClick={() => setShowProperties(false)} 
               />
               
               <div className={`
                 fixed z-50 bg-white dark:bg-[#1e293b] shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
-                bottom-16 md:bottom-auto left-0 w-full h-[70vh] rounded-t-2xl
-                md:static md:h-auto md:w-[440px] md:rounded-none md:shadow-none md:border-l md:border-gray-200 md:flex-shrink-0
-                ${showProperties ? 'translate-y-0 md:translate-y-0 md:translate-x-0' : 'translate-y-full md:translate-y-0 md:translate-x-full md:hidden'}
+                top-0 right-0 h-full w-[85%] max-w-[400px] md:static md:h-auto md:w-[440px] md:rounded-none md:shadow-none md:border-l md:border-gray-200 md:flex-shrink-0
+                ${showProperties ? 'translate-x-0 md:translate-x-0' : 'translate-x-full md:hidden'}
               `}>
+                <button 
+                  onClick={() => setShowProperties(false)}
+                  type="button"
+                  className="absolute top-3 right-3 z-[100] p-2 bg-white text-red-500 rounded-lg shadow-md border border-gray-200 hover:bg-red-50 transition md:hidden"
+                >
+                  <X size={24} />
+                </button>
+
                 <PropertiesPanel onClose={() => setShowProperties(false)} />
               </div>
             </div>
           } />
 
-          <Route path="/projects" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <ProjectsPage />
-            </div>
-          } />
-
-          <Route path="/calc/electric" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <ErrorBoundary>
-                <FinishingCalculator initialGroup="electric" isStandalone={true} />
-              </ErrorBoundary>
-            </div>
-          } />
-
-          <Route path="/calc/finishing" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <ErrorBoundary>
-                <FinishingCalculator initialGroup="finishing" isStandalone={true} />
-              </ErrorBoundary>
-            </div>
-          } />
-
-          <Route path="/calc/construction" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <ErrorBoundary>
-                <ConstructionCalc />
-              </ErrorBoundary>
-            </div>
-          } />
-
-          <Route path="/estimate" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <Estimate />
-            </div>
-          } />
-
-          <Route path="/materials" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <MaterialsPage />
-            </div>
-          } />
-
-          <Route path="/works" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <WorksPage />
-            </div>
-          } />
-
-          <Route path="/terms" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <TermsPage />
-            </div>
-          } />
-
-          <Route path="/pricing" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <PricingPage />
-            </div>
-          } />
-
-          <Route path="/settings" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <SettingsPage />
-            </div>
-          } />
-
-          <Route path="/clients" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <ClientsPage />
-            </div>
-          } />
-
-          {/* 👇 Новый роут для форума */}
-          <Route path="/forum" element={
-            <div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto">
-              <ForumPage />
-            </div>
-          } />
-
-          <Route path="*" element={
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-xl font-medium">
-              Страница не найдена
-            </div>
-          } />
+          <Route path="/projects" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ProjectsPage /></div>} />
+          <Route path="/calc/electric" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ErrorBoundary><FinishingCalculator initialGroup="electric" isStandalone={true} /></ErrorBoundary></div>} />
+          <Route path="/calc/finishing" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ErrorBoundary><FinishingCalculator initialGroup="finishing" isStandalone={true} /></ErrorBoundary></div>} />
+          <Route path="/calc/construction" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ErrorBoundary><ConstructionCalc /></ErrorBoundary></div>} />
+          <Route path="/estimate" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><Estimate /></div>} />
+          <Route path="/materials" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><MaterialsPage /></div>} />
+          <Route path="/works" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><WorksPage /></div>} />
+          <Route path="/terms" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><TermsPage /></div>} />
+          <Route path="/pricing" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><PricingPage /></div>} />
+          <Route path="/settings" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><SettingsPage /></div>} />
+          <Route path="/clients" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ClientsPage /></div>} />
+          <Route path="/forum" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ForumPage /></div>} />
+          
+          <Route path="/chat" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-hidden"><ChatPage /></div>} />
+          
+          <Route path="*" element={<div className="flex-1 flex items-center justify-center text-gray-500 text-xl font-medium">Страница не найдена</div>} />
         </Routes>
       </main>
       
@@ -210,11 +175,13 @@ export default function App() {
         currentScreen={currentScreen} 
         onMenuClick={handleNavigate} 
         onOpenMenu={() => setIsMobileMenuOpen(true)} 
+        onOpenHelper={() => setIsHelperOpen(true)}
       />
       
-      <div className={hideHelperOnMobile ? 'hidden md:block' : 'block'}>
-        <InteractiveHelper />
-      </div>
+      <InteractiveHelper 
+        forceOpen={isHelperOpen} 
+        onCloseExternal={() => setIsHelperOpen(false)} 
+      />
       
       <WelcomeModal />
       <Toast /> 

@@ -10,10 +10,12 @@ const searchableSections = [
   { name: '3D Планировщик', path: '/project', keywords: ['3d', 'план', 'проект', 'комнат'] },
   { name: 'Калькулятор: Электрика', path: '/calc/electric', keywords: ['электрик', 'кабель', 'щит', 'автомат'] },
   { name: 'Калькулятор: Отделка', path: '/calc/finishing', keywords: ['отделка', 'плитка', 'обои', 'ламинат', 'штукатурка'] },
+  { name: 'Калькулятор: Строительство', path: '/calc/construction', keywords: ['строительство', 'лестница', 'стяжка', 'теплый пол'] },
   { name: 'Материалы и цены', path: '/materials', keywords: ['материал', 'цена', 'прайс', 'импорт'] },
-  { name: 'База работ', path: '/works', keywords: ['работ', 'услуг', 'стоимост'] },
+  { name: 'Стоимость работ', path: '/works', keywords: ['работ', 'услуг', 'стоимост'] },
   { name: 'Смета проекта', path: '/estimate', keywords: ['смет', 'итог', 'pdf'] },
   { name: 'Клиенты', path: '/clients', keywords: ['клиент', 'заказчик', 'база'] },
+  { name: 'Форум', path: '/forum', keywords: ['форум', 'обсужд', 'вопрос'] },
   { name: 'Настройки', path: '/settings', keywords: ['настройк', 'профиль', 'имя'] },
   { name: 'Тарифы (PRO)', path: '/pricing', keywords: ['тариф', 'pro', 'оплат', 'подписк'] },
 ];
@@ -21,7 +23,7 @@ const searchableSections = [
 export default function Header({ currentScreen, onOpenMenu }) {
   const { projects, activeProjectId, setActiveProject, addProject, removeProject } = useProjectsStore();
   const { projectRooms } = useHouseStore();
-  const { isDark, toggleTheme } = useThemeStore(); // 👈 Достаем тему
+  const { isDark, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -42,7 +44,7 @@ export default function Header({ currentScreen, onOpenMenu }) {
   if (currentScreen === 'projects') {
     title = activeProject?.name || 'Проект';
     subtitle = 'План > 3D модель';
-  } else if (currentScreen === 'calc-electric' || currentScreen === 'calc-finishing') {
+  } else if (currentScreen === 'calc-electric' || currentScreen === 'calc-finishing' || currentScreen === 'calc-construction') {
     title = 'Инженерные калькуляторы';
     subtitle = 'Расчеты';
   } else if (currentScreen === 'estimate') {
@@ -52,7 +54,7 @@ export default function Header({ currentScreen, onOpenMenu }) {
     title = 'Материалы и цены';
     subtitle = 'Справочники';
   } else if (currentScreen === 'works') {
-    title = 'База работ';
+    title = 'Стоимость работ';
     subtitle = 'Справочники';
   } else if (currentScreen === 'clients') {
     title = 'Клиенты';
@@ -66,6 +68,9 @@ export default function Header({ currentScreen, onOpenMenu }) {
   } else if (currentScreen === 'terms') {
     title = 'Пользовательское соглашение';
     subtitle = 'Документы';
+  } else if (currentScreen === 'forum') {
+    title = 'Форум';
+    subtitle = 'Общение';
   }
 
   const handleCreateProject = () => {
@@ -172,7 +177,6 @@ export default function Header({ currentScreen, onOpenMenu }) {
           </div>
         </div>
 
-        {/* 🌙 Кнопка переключения темы */}
         <button 
           onClick={toggleTheme} 
           className="p-2 text-gray-500 hover:text-primary transition rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"

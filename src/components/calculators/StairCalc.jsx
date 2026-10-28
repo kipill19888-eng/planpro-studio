@@ -75,7 +75,7 @@ export default function StairCalc() {
 
     if (result.stairType === 'wood') {
       const woodPrice = getMaterialPrice('лестница деревянная', 'stair', 'wood');
-      const workPrice = getWorkPrice('stairWork');
+      const workPrice = getWorkPrice('w-stair');
 
       addItem({
         name: `Деревянная лестница (${result.steps} ступеней)`,
@@ -108,7 +108,7 @@ export default function StairCalc() {
         unit: 'шт',
         quantity: 1,
         materialPrice: 0,
-        workPrice: getWorkPrice('stairWork') * 1.5
+        workPrice: getWorkPrice('w-stair') * 1.5
       });
     } else if (result.stairType === 'metal') {
       const metalPrice = getMaterialPrice('лестница металлическая', 'stair', 'metal');
@@ -126,7 +126,7 @@ export default function StairCalc() {
         unit: 'шт',
         quantity: 1,
         materialPrice: 0,
-        workPrice: getWorkPrice('stairWork') * 1.2
+        workPrice: getWorkPrice('w-stair') * 1.2
       });
     }
 
@@ -138,7 +138,6 @@ export default function StairCalc() {
   return (
     <div className="max-w-4xl space-y-6 pb-24 md:pb-4">
       
-      {/* 👇 ИНФОРМАЦИОННЫЙ БЛОК (Исправлены цвета текста и иконки) */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 flex items-start gap-3">
         <Ruler className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" size={20} />
         <div className="text-sm text-gray-800 dark:text-gray-200">
@@ -152,7 +151,6 @@ export default function StairCalc() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Левая колонка: параметры */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -229,7 +227,6 @@ export default function StairCalc() {
           </button>
         </div>
 
-        {/* Правая колонка: результаты */}
         <div>
           {!result ? (
             <div className="h-full bg-gray-50 dark:bg-[#0f172a] border border-dashed border-gray-300 dark:border-gray-700 rounded-xl flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 p-6 min-h-[200px] text-center">

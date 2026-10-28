@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Play, PlusCircle } from 'lucide-react';
+import { Play, PlusCircle, Check } from 'lucide-react';
 import { useHouseStore, useRooms } from '../../store';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
 import { useMaterialsStore } from '../../storeMaterials';
 import { useWorksStore } from '../../storeWorks';
-import { useDraftsStore } from '../../storeDrafts'; // 👈 Импорт
+import { useDraftsStore } from '../../storeDrafts';
+import { useAddToEstimate } from '../../hooks/useAddToEstimate';
 import RoomSelector from './RoomSelector';
 
 export default function PlasterCalc() {
@@ -14,7 +15,8 @@ export default function PlasterCalc() {
   const { addToast } = useToastStore();
   const { getMaterialPrice } = useMaterialsStore();
   const { getWorkPrice } = useWorksStore();
-  const { drafts, saveDraft, clearDraft } = useDraftsStore(); // 👈 Достаем
+  const { drafts, saveDraft, clearDraft } = useDraftsStore();
+  const { isAdded, triggerAdd } = useAddToEstimate();
   const areas = getCalculatedAreas();
 
   const draftKey = 'calc-plaster';
@@ -27,7 +29,6 @@ export default function PlasterCalc() {
   const [bagWeight, setBagWeight] = useState(draft.bagWeight || '30');
   const [result, setResult] = useState(null);
 
-  // Сохраняем в черновик при любом изменении
   useEffect(() => {
     saveDraft(draftKey, { selectedId, area, thickness, plasterType, bagWeight });
   }, [selectedId, area, thickness, plasterType, bagWeight, saveDraft]);
@@ -42,11 +43,11 @@ export default function PlasterCalc() {
       setArea(areas.wallsArea.toFixed(1));
     }
     setResult(null);
-  }, [selectedId, rooms, areas.wallsArea]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, rooms, areas.wallsArea]);
 
   const handleRoomSelect = (id, newArea) => {
     setSelectedId(id);
-    if (newArea) setArea(newArea);
+    if (newArea && typeof newArea === 'string') setArea(newArea);
   };
 
   const handleCalc = () => {
@@ -80,10 +81,10 @@ export default function PlasterCalc() {
       return;
     }
 
-    try {
+    triggerAdd(() => {
       const searchStr = consumptionData[plasterType].searchStr;
       const currentMaterialPrice = getMaterialPrice(searchStr, 'plaster', plasterType);
-      const currentWorkPrice = getWorkPrice('plaster');
+      const currentWorkPrice = getWorkPrice('w-plaster');
 
       addItem({
         name: `Штукатурка ${consumptionData[plasterType].name}`,
@@ -101,42 +102,23 @@ export default function PlasterCalc() {
         workPrice: currentWorkPrice
       });
 
-      // Очищаем черновик после добавления в смету
       clearDraft(draftKey);
-      addToast('Штукатурка добавлена в смету. Форма сброшена.');
-      
-      // Сбрасываем локальный стейт к дефолту
-      setThickness('2');
-      setPlasterType('gypsum');
-      setResult(null);
-
-    } catch (error) {
-      console.error(error);
-      addToast('Ошибка при добавлении в смету', 'error');
-    }
+    });
   };
 
   return (
     <div className="max-w-2xl space-y-4 pb-24 md:pb-4">
-      
       <RoomSelector selectedId={selectedId} onSelect={handleRoomSelect} surface="walls" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div className="col-span-1 sm:col-span-2">
           <label className="block text-sm text-gray-600 mb-1 font-medium">Площадь стен для расчета (м²)</label>
-          <input 
-            type="number" 
-            value={area} 
-            onChange={(e) => setArea(e.target.value)} 
-            className="w-full p-3 border border-gray-300 rounded-md focus:border-primary outline-none font-bold text-lg text-primary" 
-          />
+          <input type="number" value={area} onChange={(e) => setArea(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md focus:border-primary outline-none font-bold text-lg text-primary" />
         </div>
-
         <div>
           <label className="block text-sm text-gray-600 mb-1">Толщина слоя (мм)</label>
           <input type="number" step="1" value={thickness} onChange={(e) => setThickness(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md focus:border-primary outline-none" />
         </div>
-        
         <div>
           <label className="block text-sm text-gray-600 mb-1">Тип смеси</label>
           <select value={plasterType} onChange={(e) => setPlasterType(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md focus:border-primary outline-none bg-white">
@@ -147,7 +129,6 @@ export default function PlasterCalc() {
             Цена: {getMaterialPrice(consumptionData[plasterType].searchStr, 'plaster', plasterType)} ₽ / меш.
           </p>
         </div>
-        
         <div>
            <label className="block text-sm text-gray-600 mb-1">Фасовка</label>
            <select value={bagWeight} onChange={(e) => setBagWeight(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md focus:border-primary outline-none bg-white">
@@ -157,11 +138,7 @@ export default function PlasterCalc() {
         </div>
       </div>
 
-      <button 
-        type="button"
-        onClick={handleCalc} 
-        className="w-full py-4 bg-primary text-white rounded-lg mt-4 flex items-center justify-center gap-2 font-bold hover:bg-blue-700 transition shadow-md relative z-10"
-      >
+      <button type="button" onClick={handleCalc} className="w-full py-4 bg-primary text-white rounded-lg mt-4 flex items-center justify-center gap-2 font-bold hover:bg-blue-700 transition shadow-md relative z-10">
         <Play size={20}/> Рассчитать
       </button>
 
@@ -183,8 +160,8 @@ export default function PlasterCalc() {
             <strong>Запас +20%</strong> заложен автоматически (15% на кривизну, 5% на потери).
           </div>
           
-          <button onClick={addToEstimate} className="w-full py-3 bg-green-600 text-white rounded-md mt-2 flex items-center justify-center gap-2 font-medium hover:bg-green-700 transition shadow-sm">
-            <PlusCircle size={18}/> Добавить в смету
+          <button onClick={addToEstimate} disabled={isAdded} className={`w-full py-3 rounded-md mt-2 flex items-center justify-center gap-2 font-medium transition shadow-sm ${isAdded ? 'bg-green-100 text-green-700 border border-green-300 cursor-default' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+            {isAdded ? <><Check size={18}/> Добавлено!</> : <><PlusCircle size={18}/> Добавить в смету</>}
           </button>
         </div>
       )}

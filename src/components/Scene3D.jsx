@@ -230,7 +230,7 @@ function CameraController({ targetRoom }) {
 }
 
 export default function Scene3D({ selectedRoomId, onSelectRoom, selectedWall, onSelectWall }) {
-  const activeRooms = useActiveFloorRooms(); // 👈 Берем только комнаты активного этажа
+  const activeRooms = useActiveFloorRooms();
   const floors = useFloors();
   const activeFloorId = useHouseStore((s) => s.activeFloorId);
   const isolateRoomId = useHouseStore((s) => s.isolateRoomId);
@@ -241,13 +241,12 @@ export default function Scene3D({ selectedRoomId, onSelectRoom, selectedWall, on
   const selectedRoom = activeRooms.find(r => r.id === selectedRoomId);
   const selectedGroupId = selectedRoom ? selectedRoom.groupId : null;
 
-  // Вычисляем высоту этажа для правильного расположения в 3D
   const getFloorY = (room) => {
     if (activeFloorId === 'all') {
       const floorIndex = floors.findIndex(f => f.id === room.floorId);
-      return floorIndex >= 0 ? floorIndex * 3 : 0; // Каждый этаж на 3 метра выше предыдущего
+      return floorIndex >= 0 ? floorIndex * 3 : 0;
     }
-    return 0; // Если выбран один этаж, все комнаты на уровне 0
+    return 0;
   };
 
   return (
@@ -262,7 +261,7 @@ export default function Scene3D({ selectedRoomId, onSelectRoom, selectedWall, on
           <Room
             key={room.id}
             room={room}
-            floorY={getFloorY(room)} // 👈 Передаем высоту этажа
+            floorY={getFloorY(room)}
             isSelected={selectedGroupId ? room.groupId === selectedGroupId : room.id === selectedRoomId}
             selectedWall={selectedWall}
             onSelect={onSelectRoom}

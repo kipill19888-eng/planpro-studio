@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Play, PlusCircle } from 'lucide-react';
+import { Play, PlusCircle, Check } from 'lucide-react';
 import { useHouseStore, useRooms } from '../../store';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
 import { useMaterialsStore } from '../../storeMaterials';
 import { useWorksStore } from '../../storeWorks';
 import { useDraftsStore } from '../../storeDrafts';
+import { useAddToEstimate } from '../../hooks/useAddToEstimate';
 import RoomSelector from './RoomSelector';
 
 export default function PuttyCalc() {
@@ -15,6 +16,7 @@ export default function PuttyCalc() {
   const { getMaterialPrice } = useMaterialsStore();
   const { getWorkPrice } = useWorksStore();
   const { drafts, saveDraft, clearDraft } = useDraftsStore();
+  const { isAdded, triggerAdd } = useAddToEstimate();
   const areas = getCalculatedAreas();
 
   const draftKey = 'calc-putty';
@@ -35,7 +37,7 @@ export default function PuttyCalc() {
       setArea(areas.wallsArea.toFixed(1));
     }
     setResult(null);
-  }, [selectedId, rooms, areas.wallsArea]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, rooms, areas.wallsArea]);
 
   const handleRoomSelect = (id, newArea) => {
     setSelectedId(id);
@@ -58,26 +60,21 @@ export default function PuttyCalc() {
   };
 
   const addToEstimate = () => {
-    if (!result) {
-      addToast('Сначала нажмите «Рассчитать»', 'error');
-      return;
-    }
+    if (!result) return;
     
-    const startPrice = getMaterialPrice('шпаклевка стартовая', 'putty', 'start');
-    const finishPrice = getMaterialPrice('шпаклевка финишная', 'putty', 'finish');
-    const workPrice = getWorkPrice('putty');
-    
-    if (result.startBags > 0) addItem({ name: `Шпаклевка стартовая`, unit: `меш. (20 кг)`, quantity: result.startBags, materialPrice: startPrice, workPrice: 0 });
-    if (result.finishBags > 0) addItem({ name: `Шпаклевка финишная`, unit: `меш. (20 кг)`, quantity: result.finishBags, materialPrice: finishPrice, workPrice: 0 });
-    
-    const totalLayers = parseInt(startLayers) + parseInt(finishLayers);
-    addItem({ name: `Работа: Шпаклевка стен (${totalLayers} слоя)`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
-    
-    clearDraft(draftKey);
-    setResult(null);
-    setStartLayers('1');
-    setFinishLayers('2');
-    addToast('Шпаклевка добавлена в смету.');
+    triggerAdd(() => {
+      const startPrice = getMaterialPrice('шпаклевка стартовая', 'putty', 'start');
+      const finishPrice = getMaterialPrice('шпаклевка финишная', 'putty', 'finish');
+      const workPrice = getWorkPrice('w-putty');
+      
+      if (result.startBags > 0) addItem({ name: `Шпаклевка стартовая`, unit: `меш. (20 кг)`, quantity: result.startBags, materialPrice: startPrice, workPrice: 0 });
+      if (result.finishBags > 0) addItem({ name: `Шпаклевка финишная`, unit: `меш. (20 кг)`, quantity: result.finishBags, materialPrice: finishPrice, workPrice: 0 });
+      
+      const totalLayers = parseInt(startLayers) + parseInt(finishLayers);
+      addItem({ name: `Работа: Шпаклевка стен (${totalLayers} слоя)`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
+      
+      clearDraft(draftKey);
+    });
   };
 
   return (
@@ -111,8 +108,8 @@ export default function PuttyCalc() {
               <div className="text-sm text-gray-500">{result.finishBags} меш. по 20 кг</div>
             </div>
           </div>
-          <button onClick={addToEstimate} className="w-full py-2.5 bg-green-600 text-white rounded-md mt-2 flex items-center justify-center gap-2 font-medium hover:bg-green-700 transition">
-            <PlusCircle size={18}/> Добавить в смету
+          <button onClick={addToEstimate} disabled={isAdded} className={`w-full py-2.5 rounded-md mt-2 flex items-center justify-center gap-2 font-medium transition ${isAdded ? 'bg-green-100 text-green-700 border border-green-300 cursor-default' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+            {isAdded ? <><Check size={18}/> Добавлено!</> : <><PlusCircle size={18}/> Добавить в смету</>}
           </button>
         </div>
       )}

@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import { 
-  Folder, Calculator, FileText, Plus, ArrowRight, Home as HomeIcon, Clock, Trash2, 
-  Layers, Ruler, CheckCircle2, Crown, Box, Zap, PaintRoller, ShieldCheck, 
-  Users, Sparkles, HardHat 
-} from 'lucide-react';
+import { Folder, Calculator, FileText, Plus, ArrowRight, Home as HomeIcon, Clock, Trash2, Layers, Ruler, CheckCircle2, Crown, Box, Zap, PaintRoller, ShieldCheck, Users, Sparkles, HardHat } from 'lucide-react';
 import { useProjectsStore } from '../storeProjects';
 import { useHouseStore } from '../store';
+import { useUserStore } from '../storeUser';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
 import { useToastStore } from '../storeToast';
@@ -13,15 +10,19 @@ import { useToastStore } from '../storeToast';
 export default function HomePage() {
   const { projects, activeProjectId, setActiveProject, addProject, removeProject } = useProjectsStore();
   const { projectRooms } = useHouseStore();
+  const { canEdit, isDemoExpired } = useUserStore();
   const { addToast } = useToastStore();
   const navigate = useNavigate();
 
   const [projectToDelete, setProjectToDelete] = useState(null);
 
-  // Проверяем, есть ли у пользователя реальные проекты (комнаты)
   const hasRealProjects = projects.some(p => (projectRooms[p.id] || []).length > 0);
 
   const handleCreateProject = () => {
+    if (isDemoExpired()) {
+      addToast('Демо-режим истек. Купите тариф для создания проектов.', 'error');
+      return;
+    }
     const name = prompt('Введите название нового проекта:', 'Новый проект');
     if (name) {
       addProject(name);
@@ -36,6 +37,10 @@ export default function HomePage() {
 
   const handleDeleteClick = (e, project) => {
     e.stopPropagation();
+    if (isDemoExpired()) {
+      addToast('Демо-режим истек. Купите тариф для редактирования.', 'error');
+      return;
+    }
     if (projects.length === 1) {
       addToast('Нельзя удалить единственный проект', 'error');
       return;
@@ -50,15 +55,13 @@ export default function HomePage() {
     return d.toLocaleDateString('ru-RU');
   };
 
-  // === ЛЕНДИНГ ДЛЯ НОВЫХ ПОЛЬЗОВАТЕЛЕЙ ===
   if (!hasRealProjects) {
     return (
       <div className="flex-1 overflow-y-auto animate-fade-in bg-gradient-to-b from-gray-50 to-white dark:from-[#0f172a] dark:to-[#1e293b]">
         
-        {/* Hero Section */}
         <div className="max-w-6xl mx-auto px-4 py-16 md:py-24 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-bold mb-6">
-            <Sparkles size={16} /> Профессиональный инструмент для ремонта
+            <Sparkles size={16} /> Личный кабинет Мастера
           </div>
           
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
@@ -74,7 +77,12 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <button 
               onClick={handleCreateProject}
-              className="px-8 py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+              disabled={isDemoExpired()}
+              className={`px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition ${
+                isDemoExpired() 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-primary text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30'
+              }`}
             >
               <Plus size={20} /> Создать первый проект
             </button>
@@ -86,7 +94,6 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Скриншоты / Карточки возможностей */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
             <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm text-left">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4">
@@ -119,7 +126,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Блок преимуществ */}
           <div className="bg-gray-900 dark:bg-black rounded-3xl p-8 md:p-12 text-left text-white shadow-2xl">
             <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center">Всё, что нужно для ремонта</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -155,7 +161,12 @@ export default function HomePage() {
             <div className="mt-10 text-center">
               <button 
                 onClick={handleCreateProject}
-                className="px-8 py-3 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-100 transition inline-flex items-center gap-2"
+                disabled={isDemoExpired()}
+                className={`px-8 py-3 rounded-xl font-bold inline-flex items-center gap-2 transition ${
+                  isDemoExpired() 
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                    : 'bg-white text-gray-900 hover:bg-gray-100'
+                }`}
               >
                 Начать бесплатно <ArrowRight size={18} />
               </button>
@@ -166,20 +177,24 @@ export default function HomePage() {
     );
   }
 
-  // === РАБОЧИЙ СТОЛ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ С ПРОЕКТАМИ ===
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-10 animate-fade-in">
       
       <div className="mb-8 flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Рабочий стол</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Личный кабинет Мастера</h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
             У вас {projects.length} {projects.length === 1 ? 'проект' : 'проектов'}. Продолжайте планирование или создайте новый.
           </p>
         </div>
         <button 
           onClick={handleCreateProject}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-base font-bold hover:bg-blue-700 transition shadow-md"
+          disabled={isDemoExpired()}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-base font-bold transition shadow-md ${
+            isDemoExpired() 
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+              : 'bg-primary text-white hover:bg-blue-700'
+          }`}
         >
           <Plus size={20} /> Новый проект
         </button>

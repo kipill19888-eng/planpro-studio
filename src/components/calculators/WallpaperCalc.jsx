@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Play, PlusCircle } from 'lucide-react';
+import { Play, PlusCircle, Check } from 'lucide-react';
 import { useHouseStore, useRooms } from '../../store';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
 import { useMaterialsStore } from '../../storeMaterials';
 import { useWorksStore } from '../../storeWorks';
 import { useDraftsStore } from '../../storeDrafts';
+import { useAddToEstimate } from '../../hooks/useAddToEstimate';
 import RoomSelector from './RoomSelector';
 
 export default function WallpaperCalc() {
@@ -15,6 +16,7 @@ export default function WallpaperCalc() {
   const { getMaterialPrice } = useMaterialsStore();
   const { getWorkPrice } = useWorksStore();
   const { drafts, saveDraft, clearDraft } = useDraftsStore();
+  const { isAdded, triggerAdd } = useAddToEstimate();
   const areas = getCalculatedAreas();
 
   const draftKey = 'calc-wallpaper';
@@ -40,15 +42,12 @@ export default function WallpaperCalc() {
       setPerimeter(areas.perimeter.toFixed(1));
     }
     setResult(null);
-  }, [selectedId, rooms, areas.wallsArea, areas.perimeter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, rooms, areas.wallsArea, areas.perimeter]);
 
   const handleRoomSelect = (id, newArea) => {
     setSelectedId(id);
-    if (newArea) {
+    if (newArea && typeof newArea === 'string') {
       setArea(newArea);
-      const selectedRooms = rooms.filter(r => (r.groupId || `single-${r.id}`) === id);
-      const totalPerimeter = selectedRooms.reduce((sum, r) => sum + (2 * (r.length + r.width)), 0);
-      setPerimeter(totalPerimeter.toFixed(1));
     }
   };
 
@@ -73,22 +72,19 @@ export default function WallpaperCalc() {
   };
 
   const addToEstimate = () => {
-    if (!result) {
-      addToast('Сначала нажмите «Рассчитать»', 'error');
-      return;
-    }
+    if (!result) return;
 
-    const rollPrice = getMaterialPrice('обои', 'wallpaper', 'roll');
-    const gluePrice = getMaterialPrice('клей для обоев', 'wallpaper', 'glue');
-    const workPrice = getWorkPrice('wallpaper');
+    triggerAdd(() => {
+      const rollPrice = getMaterialPrice('обои', 'wallpaper', 'roll');
+      const gluePrice = getMaterialPrice('клей для обоев', 'wallpaper', 'glue');
+      const workPrice = getWorkPrice('w-wallpaper');
 
-    addItem({ name: `Обои (ширина ${rollWidth}м)`, unit: 'рулон', quantity: result.recommendedRolls, materialPrice: rollPrice, workPrice: 0 });
-    addItem({ name: `Клей для обоев`, unit: 'упак', quantity: result.gluePacks, materialPrice: gluePrice, workPrice: 0 });
-    addItem({ name: `Работа: Поклейка обоев`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
+      addItem({ name: `Обои (ширина ${rollWidth}м)`, unit: 'рулон', quantity: result.recommendedRolls, materialPrice: rollPrice, workPrice: 0 });
+      addItem({ name: `Клей для обоев`, unit: 'упак', quantity: result.gluePacks, materialPrice: gluePrice, workPrice: 0 });
+      addItem({ name: `Работа: Поклейка обоев`, unit: 'м²', quantity: result.cleanArea, materialPrice: 0, workPrice: workPrice });
 
-    clearDraft(draftKey);
-    setResult(null);
-    addToast('Обои добавлены в смету.');
+      clearDraft(draftKey);
+    });
   };
 
   return (
@@ -131,8 +127,8 @@ export default function WallpaperCalc() {
             <span className="text-sm text-gray-500">Клей для обоев:</span>
             <span className="text-lg font-bold text-gray-800">{result.gluePacks} упаковок</span>
           </div>
-          <button onClick={addToEstimate} className="w-full py-2.5 bg-green-600 text-white rounded-md mt-2 flex items-center justify-center gap-2 font-medium hover:bg-green-700 transition">
-            <PlusCircle size={18}/> Добавить в смету
+          <button onClick={addToEstimate} disabled={isAdded} className={`w-full py-2.5 rounded-md mt-2 flex items-center justify-center gap-2 font-medium transition ${isAdded ? 'bg-green-100 text-green-700 border border-green-300 cursor-default' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+            {isAdded ? <><Check size={18}/> Добавлено!</> : <><PlusCircle size={18}/> Добавить в смету</>}
           </button>
         </div>
       )}

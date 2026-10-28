@@ -2,7 +2,15 @@ import { Home, Folder, Box, List, FileText, Users, Box as Cube, Settings, Crown,
 import { useUserStore } from '../storeUser';
 
 export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose }) {
-  const { isPro, setPro, userName } = useUserStore();
+  const { subscriptionType, setSubscriptionType, userName } = useUserStore();
+
+  // 👇 Обновленные названия тарифов
+  const planNames = {
+    demo: 'Демо (2 дня)',
+    finisher: 'Мастер Отделки',
+    master: 'Мастер Стройки',
+    corporate: 'Корпоративный',
+  };
 
   return (
     <>
@@ -42,11 +50,10 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
           <div className="my-1 md:my-2 border-t border-white/5 mx-2"></div>
 
           <NavItem icon={<Box size={14} />} text="Материалы" active={currentScreen === 'materials'} onClick={() => onMenuClick('materials')} />
-          <NavItem icon={<List size={14} />} text="База работ" active={currentScreen === 'works'} onClick={() => onMenuClick('works')} />
+          <NavItem icon={<List size={14} />} text="Стоимость работ" active={currentScreen === 'works'} onClick={() => onMenuClick('works')} />
           <NavItem icon={<FileText size={14} />} text="Сметы" active={currentScreen === 'estimate'} onClick={() => onMenuClick('estimate')} />
           <NavItem icon={<Users size={14} />} text="Клиенты" active={currentScreen === 'clients'} onClick={() => onMenuClick('clients')} />
           
-          {/* 👇 Новый пункт: Форум */}
           <NavItem 
             icon={<MessageSquare size={14} />} 
             text="Форум" 
@@ -60,31 +67,27 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
           <NavItem icon={<Settings size={14} />} text="Настройки" active={currentScreen === 'settings'} onClick={() => onMenuClick('settings')} />
         </nav>
 
+        {/* Блок с переключателем тарифа */}
         <div className="mx-2 md:m-4 p-2 md:p-4 bg-white/5 border border-white/10 rounded-lg md:rounded-xl shrink-0">
-          <div className="flex justify-between items-center mb-1 md:mb-3">
+          <div className="flex justify-between items-center mb-2">
             <div className="text-yellow-500 font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">
-              <Crown size={12} className="md:w-4 md:h-4" /> PRO
+              <Crown size={12} className="md:w-4 md:h-4" /> Тариф
             </div>
-            <button 
-              onClick={() => setPro(!isPro)}
-              className={`w-7 h-3.5 md:w-10 md:h-5 rounded-full relative transition-colors ${isPro ? 'bg-yellow-500' : 'bg-gray-600'}`}
-            >
-              <div className={`w-2.5 h-2.5 md:w-3.5 md:h-3.5 bg-white rounded-full absolute top-[2px] md:top-[3px] transition-transform ${isPro ? 'translate-x-[16px] md:translate-x-[22px]' : 'translate-x-[2px] md:translate-x-[3px]'}`}></div>
-            </button>
           </div>
           
-          <p className="text-[9px] md:text-[11px] text-gray-400 mb-2 md:mb-3 leading-tight hidden md:block">
-            {isPro ? 'У вас активен премиум-тариф' : 'Расширенные функции для профессионалов'}
-          </p>
+          <select
+            value={subscriptionType}
+            onChange={(e) => setSubscriptionType(e.target.value)}
+            className="w-full bg-gray-800 text-white text-[11px] md:text-xs p-1.5 rounded border border-gray-700 outline-none cursor-pointer mb-2"
+          >
+            {Object.entries(planNames).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
 
-          {!isPro && (
-            <button 
-              onClick={() => onMenuClick('pricing')}
-              className="w-full py-1 md:py-2 bg-yellow-500 text-black font-bold rounded md:rounded-md hover:bg-yellow-400 transition text-[10px] md:text-xs"
-            >
-              Улучшить
-            </button>
-          )}
+          <p className="text-[9px] md:text-[10px] text-gray-500 leading-tight">
+            {subscriptionType === 'demo' ? '2 дня пробного доступа' : 'Платный тариф'}
+          </p>
         </div>
 
         <div className="px-3 md:px-5 pb-2">
@@ -104,7 +107,9 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
           </div>
           <div className="truncate">
             <div className="text-white text-[11px] md:text-sm font-medium truncate">{userName}</div>
-            <div className="text-[9px] md:text-xs text-gray-400">{isPro ? 'PRO Мастер' : 'Базовый'}</div>
+            <div className="text-[9px] md:text-xs text-gray-400">
+              {planNames[subscriptionType] || 'Базовый'}
+            </div>
           </div>
         </div>
       </aside>
