@@ -18,7 +18,8 @@ import SettingsPage from './pages/SettingsPage';
 import ClientsPage from './pages/ClientsPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ForumPage from './pages/ForumPage';
-import ChatPage from './pages/ChatPage'; // 👈 ИСПРАВЛЕННЫЙ ПУТЬ
+import ChatPage from './pages/ChatPage';
+import CalculatorsHub from './pages/CalculatorsHub';
 import WelcomeModal from './components/WelcomeModal';
 import InteractiveHelper from './components/InteractiveHelper';
 import Toast from './components/Toast';
@@ -34,19 +35,19 @@ export default function App() {
   const [isHelperOpen, setIsHelperOpen] = useState(false);
   const { initTheme } = useThemeStore();
   
-  // 👇 Логика тарифов и демо
   const { startDemo, isDemoExpired, subscriptionType } = useUserStore();
   const isDemoExpiredFlag = isDemoExpired();
 
   useEffect(() => {
     initTheme();
-    startDemo(); // 👈 Запускаем демо-таймер при первом входе
+    startDemo();
   }, [initTheme, startDemo]);
 
   const getCurrentScreen = () => {
     if (location.pathname === '/') return 'home';
     if (location.pathname === '/projects') return 'projects-list';
     if (location.pathname.startsWith('/project')) return 'projects';
+    if (location.pathname === '/calc') return 'calc-hub';
     if (location.pathname.startsWith('/calc/electric')) return 'calc-electric';
     if (location.pathname.startsWith('/calc/finishing')) return 'calc-finishing';
     if (location.pathname.startsWith('/calc/construction')) return 'calc-construction';
@@ -74,6 +75,7 @@ export default function App() {
     if (screen === 'home') navigate('/');
     else if (screen === 'projects-list') navigate('/projects');
     else if (screen === 'projects') navigate('/project');
+    else if (screen === 'calc-hub') navigate('/calc');
     else if (screen === 'calc-electric') navigate('/calc/electric');
     else if (screen === 'calc-finishing') navigate('/calc/finishing');
     else if (screen === 'calc-construction') navigate('/calc/construction');
@@ -100,10 +102,9 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-hidden w-full bg-transparent pb-16 md:pb-0">
         <Header 
           currentScreen={currentScreen} 
-          onOpenMenu={() => setIsMobileMenuOpen(true)}
+          onOpenMenu={() => setIsMobileMenuOpen(prev => !prev)}
         />
 
-        {/* 👇 ПЛАШКА: ДЕМО ИСТЕКЛО */}
         {isDemoExpiredFlag && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-2 flex items-center justify-center gap-3 text-sm text-yellow-800 dark:text-yellow-300 print:hidden">
             <AlertTriangle size={16} className="shrink-0" />
@@ -136,13 +137,13 @@ export default function App() {
               
               <div className={`
                 fixed z-50 bg-white dark:bg-[#1e293b] shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
-                top-0 right-0 h-full w-[85%] max-w-[400px] md:static md:h-auto md:w-[440px] md:rounded-none md:shadow-none md:border-l md:border-gray-200 md:flex-shrink-0
-                ${showProperties ? 'translate-x-0 md:translate-x-0' : 'translate-x-full md:hidden'}
+                top-14 right-2 bottom-20 rounded-2xl w-[75%] max-w-[320px] md:static md:h-auto md:w-[440px] md:rounded-none md:shadow-none md:border-l md:border-gray-200 md:flex-shrink-0
+                ${showProperties ? 'translate-x-0 md:translate-x-0' : 'translate-x-[120%] md:hidden'}
               `}>
                 <button 
                   onClick={() => setShowProperties(false)}
                   type="button"
-                  className="absolute top-3 right-3 z-[100] p-2 bg-white text-red-500 rounded-lg shadow-md border border-gray-200 hover:bg-red-50 transition md:hidden"
+                  className="absolute top-3 right-3 z-[100] p-2 bg-white dark:bg-gray-800 text-red-500 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 transition md:hidden"
                 >
                   <X size={24} />
                 </button>
@@ -153,6 +154,9 @@ export default function App() {
           } />
 
           <Route path="/projects" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ProjectsPage /></div>} />
+          
+          <Route path="/calc" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><CalculatorsHub onNavigate={handleNavigate} /></div>} />
+          
           <Route path="/calc/electric" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ErrorBoundary><FinishingCalculator initialGroup="electric" isStandalone={true} /></ErrorBoundary></div>} />
           <Route path="/calc/finishing" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ErrorBoundary><FinishingCalculator initialGroup="finishing" isStandalone={true} /></ErrorBoundary></div>} />
           <Route path="/calc/construction" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ErrorBoundary><ConstructionCalc /></ErrorBoundary></div>} />
@@ -164,17 +168,16 @@ export default function App() {
           <Route path="/settings" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><SettingsPage /></div>} />
           <Route path="/clients" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ClientsPage /></div>} />
           <Route path="/forum" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-y-auto"><ForumPage /></div>} />
-          
           <Route path="/chat" element={<div className="flex-1 p-2 md:p-4 flex gap-4 overflow-hidden"><ChatPage /></div>} />
           
           <Route path="*" element={<div className="flex-1 flex items-center justify-center text-gray-500 text-xl font-medium">Страница не найдена</div>} />
         </Routes>
       </main>
       
+      {/* 👇 Убран onOpenMenu */}
       <BottomNav 
         currentScreen={currentScreen} 
         onMenuClick={handleNavigate} 
-        onOpenMenu={() => setIsMobileMenuOpen(true)} 
         onOpenHelper={() => setIsHelperOpen(true)}
       />
       

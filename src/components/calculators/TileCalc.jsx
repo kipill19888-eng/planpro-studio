@@ -6,7 +6,7 @@ import { useHouseStore, useRooms } from '../../store';
 import { useEstimateStore } from '../../storeEstimate';
 import { useToastStore } from '../../storeToast';
 import { useMaterialsStore } from '../../storeMaterials';
-import { useWorksStore } from '../../storeWorks'; // 👈 Добавлен импорт
+import { useWorksStore } from '../../storeWorks';
 import { useDraftsStore } from '../../storeDrafts';
 import { useAddToEstimate } from '../../hooks/useAddToEstimate';
 import RoomSelector from './RoomSelector';
@@ -21,7 +21,7 @@ export default function TileCalc() {
   const { addItem } = useEstimateStore();
   const { addToast } = useToastStore();
   const { getMaterialPrice } = useMaterialsStore();
-  const { getWorkPrice } = useWorksStore(); // 👈 Получаем метод
+  const { getWorkPrice } = useWorksStore();
   const { drafts, saveDraft, clearDraft } = useDraftsStore();
   const { isAdded, triggerAdd } = useAddToEstimate();
   const areas = getCalculatedAreas();
@@ -198,7 +198,6 @@ export default function TileCalc() {
       const materialPrice = getMaterialPrice('плитка', 'tile', 'material');
       const gluePrice = getMaterialPrice('клей для плитки', 'tile', 'glue');
       const groutPrice = getMaterialPrice('затирка', 'tile', 'grout');
-      // 👇 Берем цену из нового стора, если там нет - из старого справочника
       const workPrice = getWorkPrice('w-tile') || getMaterialPrice('укладка плитки', 'tile', 'work');
 
       if (result.type === 'surface') {

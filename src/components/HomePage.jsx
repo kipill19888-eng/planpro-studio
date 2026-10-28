@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Folder, Calculator, FileText, Plus, ArrowRight, Home as HomeIcon, Clock, Trash2, Layers, Ruler, CheckCircle2, Crown, Box, Zap, PaintRoller, ShieldCheck, Users, Sparkles, HardHat } from 'lucide-react';
+import { Folder, Calculator, FileText, Plus, ArrowRight, Home as HomeIcon, Clock, Trash2, Layers, Ruler, CheckCircle2, Box, Sparkles } from 'lucide-react';
 import { useProjectsStore } from '../storeProjects';
 import { useHouseStore } from '../store';
 import { useUserStore } from '../storeUser';
@@ -10,7 +10,7 @@ import { useToastStore } from '../storeToast';
 export default function HomePage() {
   const { projects, activeProjectId, setActiveProject, addProject, removeProject } = useProjectsStore();
   const { projectRooms } = useHouseStore();
-  const { canEdit, isDemoExpired } = useUserStore();
+  const { isDemoExpired } = useUserStore();
   const { addToast } = useToastStore();
   const navigate = useNavigate();
 
@@ -180,7 +180,7 @@ export default function HomePage() {
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-10 animate-fade-in">
       
-      <div className="mb-8 flex justify-between items-end">
+      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Личный кабинет Мастера</h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
@@ -190,7 +190,7 @@ export default function HomePage() {
         <button 
           onClick={handleCreateProject}
           disabled={isDemoExpired()}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-base font-bold transition shadow-md ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-base font-bold transition shadow-md shrink-0 ${
             isDemoExpired() 
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
               : 'bg-primary text-white hover:bg-blue-700'
@@ -296,21 +296,6 @@ export default function HomePage() {
             );
           })}
         </div>
-      </div>
-
-      <div className="mt-8 bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-8 flex flex-col md:flex-row items-center justify-between shadow-lg">
-        <div className="text-white mb-4 md:mb-0">
-          <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
-            <Crown className="text-yellow-500" size={28} /> Откройте все возможности с PRO
-          </h3>
-          <p className="text-gray-300 text-base">Неограниченные проекты, экспорт в PDF без водяных знаков, облачная синхронизация.</p>
-        </div>
-        <button 
-          onClick={() => navigate('/pricing')}
-          className="bg-yellow-500 text-black font-bold px-6 py-3 rounded-lg hover:bg-yellow-400 transition whitespace-nowrap shadow-md text-base"
-        >
-          Перейти на PRO
-        </button>
       </div>
 
       <ConfirmModal 

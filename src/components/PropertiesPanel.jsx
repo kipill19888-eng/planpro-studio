@@ -114,22 +114,27 @@ export default function PropertiesPanel({ onClose }) {
               <ArrowRight size={14} className="rotate-180" /> Вернуться к габаритам
             </button>
 
+            {/* 👇 ИЗМЕНЕННЫЙ СИНИЙ БЛОК */}
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
-              <h4 className="font-bold text-blue-800 dark:text-blue-300 text-lg mb-1">
+              <h4 className="font-bold text-blue-800 dark:text-blue-300 text-lg mb-2">
                 Стена: {selectedWall.side === 'top' ? 'Задняя' : selectedWall.side === 'bottom' ? 'Передняя' : selectedWall.side === 'left' ? 'Левая' : 'Правая'}
               </h4>
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-blue-700 dark:text-blue-400">Комната: <span className="font-bold">{activeRoom.name}</span></p>
+              
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-blue-700 dark:text-blue-400 truncate">
+                  Комната: <span className="font-bold">{activeRoom.name}</span>
+                </p>
+                
                 <button 
                   onClick={() => setIsolateRoomId(isolateRoomId === activeRoom.id ? null : activeRoom.id)} 
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition font-medium ${
+                  className={`flex items-center justify-center gap-2 text-sm px-4 py-2 rounded-lg transition font-medium w-full ${
                     isolateRoomId === activeRoom.id 
                       ? 'bg-primary text-white shadow-sm' 
                       : 'bg-white dark:bg-[#0f172a] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-primary hover:text-primary'
                   }`}
                 >
-                  {isolateRoomId === activeRoom.id ? <Minimize2 size={14} /> : <Eye size={14} />}
-                  {isolateRoomId === activeRoom.id ? 'Показать весь дом' : 'Только эту'}
+                  {isolateRoomId === activeRoom.id ? <Minimize2 size={16} /> : <Eye size={16} />}
+                  {isolateRoomId === activeRoom.id ? 'Показать весь дом' : 'Показать только эту комнату'}
                 </button>
               </div>
             </div>

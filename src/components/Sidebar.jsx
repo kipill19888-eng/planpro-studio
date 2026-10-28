@@ -1,10 +1,9 @@
-import { Home, Folder, Box, List, FileText, Users, Box as Cube, Settings, Crown, PaintRoller, Zap, X, ShieldAlert, HardHat, MessageSquare } from 'lucide-react';
+import { Home, Folder, Box, List, FileText, Users, Box as Cube, Settings, Crown, PaintRoller, Zap, X, ShieldAlert, HardHat, MessageSquare, Bot } from 'lucide-react';
 import { useUserStore } from '../storeUser';
 
 export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose }) {
   const { subscriptionType, setSubscriptionType, userName } = useUserStore();
 
-  // 👇 Обновленные названия тарифов
   const planNames = {
     demo: 'Демо (2 дня)',
     finisher: 'Мастер Отделки',
@@ -14,26 +13,34 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
 
   return (
     <>
+      {/* Затемнение фона */}
       <div 
         className={`fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
+      {/* Само меню */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-[220px] md:w-64 bg-sidebar h-screen flex flex-col text-gray-400 flex-shrink-0 print:hidden
         transition-transform duration-300 md:relative md:translate-x-0 md:sticky md:top-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="px-4 py-3 md:p-5 flex items-center justify-between text-white border-b border-white/10 shrink-0">
+        
+        {/* Шапка с лого и крестиком */}
+        <div className="px-4 py-4 md:p-5 flex items-center justify-between text-white border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
-            <Cube className="text-blue-500 w-5 h-5 md:w-8 md:h-8" />
-            <div>
+            <Cube className="text-blue-500 w-6 h-6 md:w-8 md:h-8 shrink-0" />
+            <div className="flex flex-col justify-center">
               <div className="font-bold text-sm md:text-lg leading-tight">ПланПро</div>
-              <div className="text-[8px] md:text-[10px] text-gray-400">Studio</div>
+              <div className="text-[9px] md:text-[10px] text-gray-400">Studio</div>
             </div>
           </div>
-          <button onClick={onClose} className="md:hidden text-gray-400 hover:text-white p-1">
-            <X size={18} />
+          {/* Кнопка закрытия (только на мобильных) */}
+          <button 
+            onClick={onClose} 
+            className="md:hidden text-gray-400 hover:text-white p-1.5 bg-white/5 rounded-md transition"
+          >
+            <X size={20} />
           </button>
         </div>
 
@@ -67,7 +74,7 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
           <NavItem icon={<Settings size={14} />} text="Настройки" active={currentScreen === 'settings'} onClick={() => onMenuClick('settings')} />
         </nav>
 
-        {/* Блок с переключателем тарифа */}
+        {/* Блок с тарифом */}
         <div className="mx-2 md:m-4 p-2 md:p-4 bg-white/5 border border-white/10 rounded-lg md:rounded-xl shrink-0">
           <div className="flex justify-between items-center mb-2">
             <div className="text-yellow-500 font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">
@@ -102,7 +109,7 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
         </div>
 
         <div className="p-3 md:p-4 border-t border-white/10 flex items-center gap-2 md:gap-3 shrink-0">
-          <div className="w-6 h-6 md:w-9 md:h-9 bg-blue-600 rounded md:rounded-md flex items-center justify-center text-white font-bold text-[10px] md:text-base">
+          <div className="w-7 h-7 md:w-9 md:h-9 bg-blue-600 rounded md:rounded-md flex items-center justify-center text-white font-bold text-xs md:text-base shrink-0">
             {userName.charAt(0).toUpperCase()}
           </div>
           <div className="truncate">
@@ -121,14 +128,14 @@ function NavItem({ icon, text, active, badge, onClick }) {
   return (
     <div 
       onClick={onClick}
-      className={`flex items-center gap-2.5 md:gap-4 px-3 md:px-5 py-2 md:py-3 cursor-pointer transition-colors ${
+      className={`flex items-center gap-2.5 md:gap-4 px-3 md:px-5 py-2.5 md:py-3 cursor-pointer transition-colors ${
         active ? 'bg-primary text-white mx-1.5 md:mx-3 rounded-md md:rounded-lg' : 'text-gray-300 hover:text-white hover:bg-white/5'
       }`}
     >
-      <span className="shrink-0 [&>svg]:w-3.5 [&>svg]:h-3.5 md:[&>svg]:w-[18px] md:[&>svg]:h-[18px]">
+      <span className="shrink-0 [&>svg]:w-4 [&>svg]:h-4 md:[&>svg]:w-[18px] md:[&>svg]:h-[18px]">
         {icon}
       </span>
-      <span className="text-[12px] md:text-[15px] flex-1 truncate">{text}</span>
+      <span className="text-[13px] md:text-[15px] flex-1 truncate">{text}</span>
       {badge && <span className="bg-blue-600 text-white text-[9px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded-full">{badge}</span>}
     </div>
   );
