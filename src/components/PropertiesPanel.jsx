@@ -78,6 +78,46 @@ export default function PropertiesPanel({ onClose }) {
   const isWallDeleted = activeRoom?.deletedWalls?.includes(selectedWall?.side);
   const selectedRoom = rooms.find(r => r.id === selectedRoomId);
 
+  // 👇 ВЫЧИСЛЯЕМ ОБЩУЮ ДЛИНУ СТЕНЫ ДЛЯ ВСЕЙ ГРУППЫ
+  const getGroupWallLength = (groupId, side) => {
+    if (!groupId) return 0;
+    const groupRooms = rooms.filter(r => r.groupId === groupId);
+    
+    // Суммируем длины всех комнат в группе, которые образуют эту стену
+    return groupRooms.reduce((total, r) => {
+      // Если у комнаты удалена эта стена, она не входит в общую длину
+      if (r.deletedWalls?.includes(side)) return total;
+      
+      if (side === 'top' || side === 'bottom') return total + r.length;
+      if (side === 'left' || side === 'right') return total + r.width;
+      return total;
+    }, 0);
+  };
+
+  const groupWallLength = activeRoom ? getGroupWallLength(activeRoom.groupId, selectedWall?.side) : 0;
+
+  // 👇 ВЫЧИСЛЯЕМ ОБЩИЕ ГАБАРИТЫ ДЛЯ ГРУППЫ (для панели "Все комнаты")
+  const getGroupBoundingBox = (groupId) => {
+    if (!groupId) return { minX: 0, maxX: 0, minZ: 0, maxZ: 0, length: 0, width: 0 };
+    
+    const groupRooms = rooms.filter(r => r.groupId === groupId);
+    if (groupRooms.length === 0) return { minX: 0, maxX: 0, minZ: 0, maxZ: 0, length: 0, width: 0 };
+
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    groupRooms.forEach(r => {
+      minX = Math.min(minX, r.posX - r.length / 2);
+      maxX = Math.max(maxX, r.posX + r.length / 2);
+      minZ = Math.min(minZ, r.posZ - r.width / 2);
+      maxZ = Math.max(maxZ, r.posZ + r.width / 2);
+    });
+
+    return {
+      minX, maxX, minZ, maxZ,
+      length: maxX - minX,
+      width: maxZ - minZ
+    };
+  };
+
   const handleAddRoom = () => {
     addFirstRoom({ name: `Комната ${rooms.length + 1}`, length: 4, width: 3, height: 2.7 });
   };
@@ -114,7 +154,6 @@ export default function PropertiesPanel({ onClose }) {
               <ArrowRight size={14} className="rotate-180" /> Вернуться к габаритам
             </button>
 
-            {/* 👇 ИЗМЕНЕННЫЙ СИНИЙ БЛОК */}
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
               <h4 className="font-bold text-blue-800 dark:text-blue-300 text-lg mb-2">
                 Стена: {selectedWall.side === 'top' ? 'Задняя' : selectedWall.side === 'bottom' ? 'Передняя' : selectedWall.side === 'left' ? 'Левая' : 'Правая'}
@@ -123,8 +162,16 @@ export default function PropertiesPanel({ onClose }) {
               <div className="flex flex-col gap-3">
                 <p className="text-sm text-blue-700 dark:text-blue-400 truncate">
                   Комната: <span className="font-bold">{activeRoom.name}</span>
+                  {rooms.filter(r => r.groupId === activeRoom.groupId).length > 1 && (
+                    <span className="text-xs text-blue-500 ml-1">(Группа)</span>
+                  )}
                 </p>
                 
+                {/* 👇 Показываем общую длину стены */}
+                <div className="bg-white/50 dark:bg-black/20 p-2 rounded-lg text-sm text-blue-900 dark:text-blue-200">
+                  Длина этой стены: <span className="font-bold">{groupWallLength.toFixed(2)} м</span>
+                </div>
+
                 <button 
                   onClick={() => setIsolateRoomId(isolateRoomId === activeRoom.id ? null : activeRoom.id)} 
                   className={`flex items-center justify-center gap-2 text-sm px-4 py-2 rounded-lg transition font-medium w-full ${
@@ -273,6 +320,8 @@ export default function PropertiesPanel({ onClose }) {
                   
                   if (isGrouped && groupRooms[0].id !== room.id) return null;
 
+                  const groupBounds = isGrouped ? getGroupBoundingBox(room.groupId) : null;
+
                   return (
                     <div 
                       key={room.id} 
@@ -285,9 +334,9 @@ export default function PropertiesPanel({ onClose }) {
                           <Trash2 size={14} />
                         </button>
                       </div>
-                      {isGrouped && (
+                      {isGrouped && groupBounds && (
                         <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                          Группа из {groupRooms.length} частей
+                          Группа из {groupRooms.length} частей ({groupBounds.length.toFixed(1)} x {groupBounds.width.toFixed(1)} м)
                         </div>
                       )}
                     </div>

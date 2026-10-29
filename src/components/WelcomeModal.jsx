@@ -22,9 +22,8 @@ export default function WelcomeModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
+      <div className="bg-white dark:bg-[#1e293b] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700 animate-modal">
         
-        {/* Шапка окна */}
         <div className="bg-gradient-to-r from-blue-600 to-primary p-8 text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full bg-white/5 pattern-dots"></div>
           <div className="relative z-10">
@@ -37,22 +36,21 @@ export default function WelcomeModal() {
         </div>
 
         <div className="p-8">
-          {/* Преимущества */}
           <div className="space-y-4 mb-8">
-            <div className="flex items-center gap-3 text-gray-700">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+              <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                 <Calculator className="text-primary" size={20} />
               </div>
               <p className="text-sm font-medium">Точный расчет материалов и работ</p>
             </div>
-            <div className="flex items-center gap-3 text-gray-700">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+              <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                 <FileText className="text-primary" size={20} />
               </div>
               <p className="text-sm font-medium">Готовые сметы в PDF для заказчика</p>
             </div>
-            <div className="flex items-center gap-3 text-gray-700">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+              <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                 <ShieldCheck className="text-primary" size={20} />
               </div>
               <p className="text-sm font-medium">Профессиональный подход к делу</p>

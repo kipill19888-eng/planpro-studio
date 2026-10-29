@@ -40,6 +40,22 @@ export default function RoomSelector({
   const totalWallsArea = activeGroupRooms.reduce((sum, r) => sum + getRoomWallsArea(r), 0);
   const totalPerimeter = activeGroupRooms.reduce((sum, r) => sum + (2 * (r.length + r.width)), 0);
 
+  // 👇 ВЫЧИСЛЯЕМ ОБЩИЕ ГАБАРИТЫ ГРУППЫ
+  const groupBounds = (() => {
+    if (activeGroupRooms.length === 0) return { length: 0, width: 0 };
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    activeGroupRooms.forEach(r => {
+      minX = Math.min(minX, r.posX - r.length / 2);
+      maxX = Math.max(maxX, r.posX + r.length / 2);
+      minZ = Math.min(minZ, r.posZ - r.width / 2);
+      maxZ = Math.max(maxZ, r.posZ + r.width / 2);
+    });
+    return {
+      length: maxX - minX,
+      width: maxZ - minZ
+    };
+  })();
+
   useEffect(() => {
     if (!isAll && activeGroup) {
       const room = activeGroup.room;
@@ -119,6 +135,16 @@ export default function RoomSelector({
           </h4>
           
           <div className="space-y-1">
+            {/* 👇 ОБЩИЕ ГАБАРИТЫ (ДхШ) */}
+            {activeGroupRooms.length > 1 && (
+              <div className="flex justify-between p-2 bg-blue-50 dark:bg-[#1e293b] rounded text-sm mb-2 border border-blue-100 dark:border-blue-800">
+                <span className="text-blue-700 dark:text-blue-400 font-medium">Общий размер комнаты:</span>
+                <span className="font-bold text-blue-900 dark:text-blue-200">
+                  {groupBounds.length.toFixed(1)} × {groupBounds.width.toFixed(1)} м
+                </span>
+              </div>
+            )}
+
             {(surface === 'floor' || surface === 'both') && (
               <div className="flex justify-between p-2 bg-gray-50 dark:bg-[#1e293b] rounded text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Площадь пола:</span>

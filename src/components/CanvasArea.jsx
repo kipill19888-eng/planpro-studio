@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Box, Ruler, Info, Trash2, Plus, PanelRight, Undo2, Redo2, Layers, Home } from 'lucide-react';
-import Scene3D from './Scene3D';
+import { Info, Trash2, Plus, PanelRight, Undo2, Redo2, Layers, Home, Ruler } from 'lucide-react';
 import Plan2D from './Plan2D';
 import { useHouseStore, useRooms, useFloors, useActiveFloorRooms } from '../store';
 import { useUserStore } from '../storeUser';
@@ -14,16 +13,13 @@ export default function CanvasArea({ onShowProperties }) {
   const { addToast } = useToastStore();
   
   const {
-    removeRoom, updateRoom, 
+    removeRoom, 
     selectedRoomId, setSelectedRoomId,
-    selectedWall, setSelectedWall,
     addRoomAtPosition, addFirstRoom,
     undo, redo, past, future,
     activeFloorId, setActiveFloorId,
     addFloor, removeFloor
   } = useHouseStore();
-
-  const [viewMode, setViewMode] = useState('3d'); 
 
   const handleCreateRoom = () => {
     if (isDemoExpired()) {
@@ -61,18 +57,13 @@ export default function CanvasArea({ onShowProperties }) {
   };
 
   return (
-    <div className="flex-1 bg-white dark:bg-[#1e293b] rounded-xl border border-gray-200 dark:border-[#334155] flex flex-col p-2 md:p-4 overflow-hidden animate-fade-in">
+    <div className="relative flex-1 bg-white dark:bg-[#1e293b] rounded-xl border border-gray-200 dark:border-[#334155] flex flex-col p-2 md:p-4 overflow-hidden animate-fade-in">
       
-      {/* Верхний ряд: 2D/3D и Свойства */}
-      <div className="flex justify-between items-center gap-2 mb-2">
+      {/* Верхний ряд */}
+      <div className="flex justify-between items-center gap-2 mb-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="bg-gray-100 dark:bg-[#0f172a] p-1 rounded-lg flex gap-1">
-            <button onClick={() => setViewMode('2d')} className={`px-3 py-2 rounded-md text-sm flex items-center gap-2 transition ${viewMode === '2d' ? 'bg-white dark:bg-[#334155] shadow text-primary' : 'text-gray-600 dark:text-gray-400'}`}>
-              <Ruler size={16} /> 2D
-            </button>
-            <button onClick={() => setViewMode('3d')} className={`px-3 py-2 rounded-md text-sm flex items-center gap-2 transition ${viewMode === '3d' ? 'bg-primary text-white shadow-sm' : 'text-gray-600 dark:text-gray-400'}`}>
-              <Box size={16} /> 3D
-            </button>
+          <div className="bg-gray-100 dark:bg-[#0f172a] px-3 py-2 rounded-lg flex items-center gap-2 text-sm font-bold text-primary">
+            <Ruler size={16} /> 2D Режим
           </div>
           
           <div className="flex gap-1 bg-gray-100 dark:bg-[#0f172a] p-1 rounded-lg">
@@ -85,14 +76,27 @@ export default function CanvasArea({ onShowProperties }) {
           </div>
         </div>
 
-        <button onClick={onShowProperties} className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#334155] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm shrink-0">
-          <PanelRight size={16} /> Свойства
-        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <button 
+            onClick={handleCreateRoom} 
+            disabled={isDemoExpired() || activeFloorId === 'all'} 
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition shadow-sm shrink-0 ${
+              isDemoExpired() || activeFloorId === 'all' 
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                : 'bg-primary text-white hover:bg-blue-700'
+            }`}
+          >
+            <Home size={16} /> Комната
+          </button>
+
+          <button onClick={onShowProperties} className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-[#334155] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm shrink-0">
+            <PanelRight size={16} /> Свойства
+          </button>
+        </div>
       </div>
 
-      {/* Нижний ряд: Этажи и Комната */}
+      {/* Нижний ряд: Этажи */}
       <div className="flex items-center gap-2 w-full overflow-x-auto pb-2 border-b border-gray-200 dark:border-gray-700">
-        
         <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#0f172a] p-1 rounded-lg shrink-0">
           <Layers size={16} className="text-gray-500 ml-1.5" />
           <select 
@@ -118,26 +122,12 @@ export default function CanvasArea({ onShowProperties }) {
         <button onClick={handleAddFloor} disabled={isDemoExpired()} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition shrink-0 ${isDemoExpired() ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 dark:bg-[#0f172a] text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}>
           <Plus size={16} /> Этаж
         </button>
-
-        {activeFloorId !== 'all' && (
-          <button onClick={handleCreateRoom} disabled={isDemoExpired()} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition shadow-sm shrink-0 ${isDemoExpired() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-primary text-white hover:bg-blue-700'}`}>
-            <Home size={16} /> Комната
-          </button>
-        )}
       </div>
 
+      {/* Сама сцена - только 2D */}
       <div className="flex-1 flex gap-4 overflow-hidden relative mt-2">
         <div className="flex-1 relative rounded-lg overflow-hidden bg-[#e8eaed] dark:bg-[#0f172a] border border-gray-300 dark:border-gray-700">
-          {viewMode === '3d' ? (
-            <Scene3D
-              selectedRoomId={selectedRoomId}
-              onSelectRoom={setSelectedRoomId}
-              selectedWall={selectedWall}
-              onSelectWall={setSelectedWall}
-            />
-          ) : (
-            <Plan2D />
-          )}
+          <Plan2D />
         </div>
       </div>
 

@@ -138,7 +138,7 @@ export default function App() {
               <div className={`
                 fixed z-50 bg-white dark:bg-[#1e293b] shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden
                 top-14 right-2 bottom-20 rounded-2xl w-[75%] max-w-[320px] md:static md:h-auto md:w-[440px] md:rounded-none md:shadow-none md:border-l md:border-gray-200 md:flex-shrink-0
-                ${showProperties ? 'translate-x-0 md:translate-x-0' : 'translate-x-[120%] md:hidden'}
+                ${showProperties ? 'translate-x-0 md:translate-x-0 animate-slide-right' : 'translate-x-[120%] md:hidden'}
               `}>
                 <button 
                   onClick={() => setShowProperties(false)}
@@ -174,7 +174,6 @@ export default function App() {
         </Routes>
       </main>
       
-      {/* 👇 Убран onOpenMenu */}
       <BottomNav 
         currentScreen={currentScreen} 
         onMenuClick={handleNavigate} 

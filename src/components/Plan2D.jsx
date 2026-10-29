@@ -2,56 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { useHouseStore, useActiveFloorRooms } from '../store';
 
-const NumericInput = ({ value, onChange, className, min = 0.1 }) => {
-  const [localValue, setLocalValue] = useState(value ? String(value) : '');
-
-  useEffect(() => {
-    setLocalValue(value ? String(value) : '');
-  }, [value]);
-
-  const handleChange = (e) => {
-    const val = e.target.value;
-    setLocalValue(val);
-    
-    const num = parseFloat(val);
-    if (!isNaN(num) && num > 0) {
-      onChange(num);
-    }
-  };
-
-  const handleBlur = () => {
-    const num = parseFloat(localValue);
-    if (isNaN(num) || num < min) {
-      setLocalValue(value ? String(value) : String(min));
-      onChange(value || min);
-    } else {
-      onChange(num);
-    }
-  };
-
-  const handleFocus = (e) => {
-    if (e.target.value === '0' || e.target.value === '0.0') {
-      setLocalValue('');
-    }
-    e.target.select();
-  };
-
-  return (
-    <input
-      type="number"
-      step="0.1"
-      min={min}
-      value={localValue}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      onFocus={handleFocus}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      className={className}
-    />
-  );
-};
-
 export default function Plan2D() {
   const rooms = useActiveFloorRooms();
 
@@ -61,6 +11,7 @@ export default function Plan2D() {
     updateRoom,
     selectedWall,
     setSelectedWall,
+    deleteWall,
   } = useHouseStore();
 
   const [draggingId, setDraggingId] = useState(null);
@@ -68,8 +19,6 @@ export default function Plan2D() {
   const containerRef = useRef(null);
 
   const [viewport, setViewport] = useState({ w: 800, h: 600 });
-
-  // 👇 Состояние для зума (масштаб)
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
@@ -87,7 +36,6 @@ export default function Plan2D() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // 👇 Обработка колесика мыши для зума
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -127,9 +75,7 @@ export default function Plan2D() {
   const planWidth = maxX - minX;
   const planHeight = maxZ - minZ;
 
-  // Базовый масштаб (вписывание в экран)
   const baseScale = Math.min(viewport.w / planWidth, viewport.h / planHeight, 100);
-  // Итоговый масштаб с учетом зума
   const scale = baseScale * zoom;
 
   const offsetX = (viewport.w / 2) - ((minX + maxX) / 2) * scale;
@@ -215,6 +161,13 @@ export default function Plan2D() {
     setSelectedWall({ roomId, side });
   };
 
+  const handleWallDoubleClick = (e, roomId, side) => {
+    e.stopPropagation();
+    if (window.confirm('Удалить эту стену? (создать проход)')) {
+      deleteWall(roomId, side);
+    }
+  };
+
   const renderOpenings = (room) => {
     const elements = [];
     const deletedWalls = room.deletedWalls || [];
@@ -264,38 +217,13 @@ export default function Plan2D() {
       onPointerLeave={handlePointerUp}
       onPointerCancel={handlePointerUp}
     >
-      {/* 👇 КНОПКИ ЗУМА */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-1 bg-white dark:bg-[#1e293b] border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-1">
-        <button 
-          onClick={() => setZoom(z => Math.min(z + 0.2, 3))}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition"
-          title="Приблизить"
-        >
-          <ZoomIn size={18} />
-        </button>
-        <button 
-          onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition"
-          title="Отдалить"
-        >
-          <ZoomOut size={18} />
-        </button>
-        <button 
-          onClick={() => setZoom(1)}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition border-t border-gray-200 dark:border-gray-700"
-          title="Сбросить масштаб"
-        >
-          <Maximize size={18} />
-        </button>
+        <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition" title="Приблизить"><ZoomIn size={18} /></button>
+        <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition" title="Отдалить"><ZoomOut size={18} /></button>
+        <button onClick={() => setZoom(1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition border-t border-gray-200 dark:border-gray-700" title="Сбросить масштаб"><Maximize size={18} /></button>
       </div>
 
-      <svg
-        width={viewport.w}
-        height={viewport.h}
-        className="bg-white dark:bg-[#1e293b] rounded-lg"
-        viewBox={`0 0 ${viewport.w} ${viewport.h}`}
-        style={{ touchAction: 'none' }}
-      >
+      <svg width={viewport.w} height={viewport.h} className="bg-white dark:bg-[#1e293b] rounded-lg" viewBox={`0 0 ${viewport.w} ${viewport.h}`} style={{ touchAction: 'none' }}>
         <defs>
           <pattern id="grid" width={scale} height={scale} patternUnits="userSpaceOnUse">
             <path d={`M ${scale} 0 L 0 0 0 ${scale}`} fill="none" stroke="#e2e8f0" strokeWidth="1" />
@@ -319,38 +247,6 @@ export default function Plan2D() {
 
           const isWallSelected = (side) => selectedWall && selectedWall.roomId === room.id && selectedWall.side === side;
 
-          const hasNeighbor = (side) => {
-            if (room.showAllWalls) return false;
-
-            return rooms.some(other => {
-              if (other.id === room.id) return false;
-              if (room.id < other.id) return false;
-
-              const tolerance = 0.1;
-              if (side === 'top') {
-                const myEdge = room.posZ - room.width / 2;
-                const otherEdge = other.posZ + other.width / 2;
-                return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posX - other.posX) < (room.length + other.length) / 2 - tolerance;
-              }
-              if (side === 'bottom') {
-                const myEdge = room.posZ + room.width / 2;
-                const otherEdge = other.posZ - other.width / 2;
-                return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posX - other.posX) < (room.length + other.length) / 2 - tolerance;
-              }
-              if (side === 'left') {
-                const myEdge = room.posX - room.length / 2;
-                const otherEdge = other.posX + other.length / 2;
-                return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posZ - other.posZ) < (room.width + other.width) / 2 - tolerance;
-              }
-              if (side === 'right') {
-                const myEdge = room.posX + room.length / 2;
-                const otherEdge = other.posX - other.length / 2;
-                return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posZ - other.posZ) < (room.width + other.width) / 2 - tolerance;
-              }
-              return false;
-            });
-          };
-
           const getWallColor = (side) => {
             if (isWallSelected(side)) return '#ef4444';
             if (isSelected) return '#3b82f6';
@@ -358,6 +254,57 @@ export default function Plan2D() {
           };
 
           const getWallStrokeWidth = (side) => isWallSelected(side) ? 8 : 4;
+
+          // 👇 ПРОСТАЯ ЛОГИКА: рисуем размер для каждой стены
+          const getWallLabelInfo = (side) => {
+            const isTopBottom = side === 'top' || side === 'bottom';
+            const myPos = isTopBottom ? room.posZ : room.posX;
+            const myLength = isTopBottom ? room.length : room.width;
+
+            // Ищем соседа строго на этой же линии
+            const neighbor = groupRooms.find(other => {
+              if (other.id === room.id) return false;
+              if (other.deletedWalls?.includes(side)) return false;
+              const otherPos = isTopBottom ? other.posZ : other.posX;
+              return Math.abs(myPos - otherPos) < 0.1; 
+            });
+
+            // Если соседа нет — рисуем размер этой стены
+            if (!neighbor) {
+              return { 
+                show: true, 
+                length: myLength, 
+                centerX: isTopBottom ? room.posX : myPos, 
+                centerZ: isTopBottom ? myPos : room.posZ 
+              };
+            }
+
+            // Если сосед есть — считаем общую сумму
+            const otherLength = isTopBottom ? neighbor.length : neighbor.width;
+            const otherPos = isTopBottom ? neighbor.posX : neighbor.posZ;
+
+            const myStart = (isTopBottom ? room.posX : myPos) - myLength / 2;
+            const myEnd = (isTopBottom ? room.posX : myPos) + myLength / 2;
+            const otherStart = otherPos - otherLength / 2;
+            const otherEnd = otherPos + otherLength / 2;
+
+            const combinedStart = Math.min(myStart, otherStart);
+            const combinedEnd = Math.max(myEnd, otherEnd);
+            const combinedLength = combinedEnd - combinedStart;
+            const combinedCenter = (combinedStart + combinedEnd) / 2;
+
+            return { 
+              show: isFirstInGroup, // Общий размер рисуем только у первой комнаты группы
+              length: combinedLength, 
+              centerX: isTopBottom ? combinedCenter : myPos, 
+              centerZ: isTopBottom ? myPos : combinedCenter 
+            };
+          };
+
+          const topInfo = getWallLabelInfo('top');
+          const bottomInfo = getWallLabelInfo('bottom');
+          const leftInfo = getWallLabelInfo('left');
+          const rightInfo = getWallLabelInfo('right');
 
           return (
             <g key={room.id}>
@@ -369,40 +316,65 @@ export default function Plan2D() {
                 style={{ touchAction: 'none' }}
               />
 
-              {!deletedWalls.includes('top') && (!hasNeighbor('top') || isWallSelected('top')) && (
-                <line x1={x} y1={z} x2={x + w} y2={z} stroke={getWallColor('top')} strokeWidth={getWallStrokeWidth('top')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'top')} />
+              {/* ВЕРХНЯЯ СТЕНА */}
+              {!deletedWalls.includes('top') && (
+                <>
+                  <line x1={x} y1={z} x2={x + w} y2={z} stroke={getWallColor('top')} strokeWidth={getWallStrokeWidth('top')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'top')} onDoubleClick={(e) => handleWallDoubleClick(e, room.id, 'top')} />
+                  {topInfo.show && (
+                    <foreignObject x={(topInfo.centerX - room.posX) * scale + x + w/2 - 25} y={z - 34} width="50" height="24">
+                      <div className="w-full h-full text-center text-[11px] leading-none font-bold bg-white dark:bg-[#1e293b] border border-gray-300 dark:border-gray-600 rounded flex items-center justify-center pointer-events-none shadow-sm">
+                        {(topInfo.length * 100).toFixed(0)}
+                      </div>
+                    </foreignObject>
+                  )}
+                </>
               )}
-              {!deletedWalls.includes('bottom') && (!hasNeighbor('bottom') || isWallSelected('bottom')) && (
-                <line x1={x} y1={z + h} x2={x + w} y2={z + h} stroke={getWallColor('bottom')} strokeWidth={getWallStrokeWidth('bottom')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'bottom')} />
+
+              {/* НИЖНЯЯ СТЕНА */}
+              {!deletedWalls.includes('bottom') && (
+                <>
+                  <line x1={x} y1={z + h} x2={x + w} y2={z + h} stroke={getWallColor('bottom')} strokeWidth={getWallStrokeWidth('bottom')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'bottom')} onDoubleClick={(e) => handleWallDoubleClick(e, room.id, 'bottom')} />
+                  {bottomInfo.show && (
+                    <foreignObject x={(bottomInfo.centerX - room.posX) * scale + x + w/2 - 25} y={z + h + 10} width="50" height="24">
+                      <div className="w-full h-full text-center text-[11px] leading-none font-bold bg-white dark:bg-[#1e293b] border border-gray-300 dark:border-gray-600 rounded flex items-center justify-center pointer-events-none shadow-sm">
+                        {(bottomInfo.length * 100).toFixed(0)}
+                      </div>
+                    </foreignObject>
+                  )}
+                </>
               )}
-              {!deletedWalls.includes('left') && (!hasNeighbor('left') || isWallSelected('left')) && (
-                <line x1={x} y1={z} x2={x} y2={z + h} stroke={getWallColor('left')} strokeWidth={getWallStrokeWidth('left')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'left')} />
+
+              {/* ЛЕВАЯ СТЕНА */}
+              {!deletedWalls.includes('left') && (
+                <>
+                  <line x1={x} y1={z} x2={x} y2={z + h} stroke={getWallColor('left')} strokeWidth={getWallStrokeWidth('left')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'left')} onDoubleClick={(e) => handleWallDoubleClick(e, room.id, 'left')} />
+                  {leftInfo.show && (
+                    <foreignObject x={x - 46} y={(leftInfo.centerZ - room.posZ) * scale + z + h/2 - 12} width="42" height="24">
+                      <div className="w-full h-full text-center text-[11px] leading-none font-bold bg-white dark:bg-[#1e293b] border border-gray-300 dark:border-gray-600 rounded flex items-center justify-center pointer-events-none shadow-sm">
+                        {(leftInfo.length * 100).toFixed(0)}
+                      </div>
+                    </foreignObject>
+                  )}
+                </>
               )}
-              {!deletedWalls.includes('right') && (!hasNeighbor('right') || isWallSelected('right')) && (
-                <line x1={x + w} y1={z} x2={x + w} y2={z + h} stroke={getWallColor('right')} strokeWidth={getWallStrokeWidth('right')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'right')} />
+
+              {/* ПРАВАЯ СТЕНА */}
+              {!deletedWalls.includes('right') && (
+                <>
+                  <line x1={x + w} y1={z} x2={x + w} y2={z + h} stroke={getWallColor('right')} strokeWidth={getWallStrokeWidth('right')} className="cursor-pointer transition-colors" onPointerDown={(e) => handleWallPointerDown(e, room.id, 'right')} onDoubleClick={(e) => handleWallDoubleClick(e, room.id, 'right')} />
+                  {rightInfo.show && (
+                    <foreignObject x={x + w + 4} y={(rightInfo.centerZ - room.posZ) * scale + z + h/2 - 12} width="42" height="24">
+                      <div className="w-full h-full text-center text-[11px] leading-none font-bold bg-white dark:bg-[#1e293b] border border-gray-300 dark:border-gray-600 rounded flex items-center justify-center pointer-events-none shadow-sm">
+                        {(rightInfo.length * 100).toFixed(0)}
+                      </div>
+                    </foreignObject>
+                  )}
+                </>
               )}
 
               {renderOpenings(room)}
 
-              {isFirstInGroup && !deletedWalls.includes('top') && (
-                <foreignObject x={x + w / 2 - 35} y={z - 36} width="70" height="30">
-                  <NumericInput
-                    value={parseFloat(room.length.toFixed(2))}
-                    onChange={(num) => updateRoom(room.id, { length: num })}
-                    className="w-full h-full text-center text-sm font-bold bg-white border border-gray-300 rounded-md outline-none focus:border-primary"
-                  />
-                </foreignObject>
-              )}
-              {isFirstInGroup && !deletedWalls.includes('left') && (
-                <foreignObject x={x - 60} y={z + h / 2 - 15} width="55" height="30">
-                  <NumericInput
-                    value={parseFloat(room.width.toFixed(2))}
-                    onChange={(num) => updateRoom(room.id, { width: num })}
-                    className="w-full h-full text-center text-sm font-bold bg-white border border-gray-300 rounded-md outline-none focus:border-primary"
-                  />
-                </foreignObject>
-              )}
-
+              {/* Название и площадь */}
               {isFirstInGroup && (
                 <>
                   <text x={x + w / 2} y={z + h / 2 - 10} textAnchor="middle" dominantBaseline="middle" fontSize={Math.min(w, h) * 0.15} fill={isSelected ? '#1e40af' : '#334155'} fontWeight="bold" className="pointer-events-none">

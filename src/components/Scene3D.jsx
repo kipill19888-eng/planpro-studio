@@ -1,14 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment, ContactShadows, Grid, Text } from '@react-three/drei';
 import { useHouseStore, useActiveFloorRooms, useFloors } from '../store';
 
 function WallWithOpenings({
-  roomLength, roomWidth, height, wallSide, openings, isSelected, isWallSelected, onClick
+  roomLength, roomWidth, height, wallSide, openings, isSelected, isWallSelected, onClick, groupWallLength, showLabel, labelOffset, forceVisible
 }) {
-  const wallThickness = 0.2;
+  const wallThickness = 0.1;
   const isTopBottom = wallSide === 'top' || wallSide === 'bottom';
-  const wallLength = isTopBottom ? roomLength : roomWidth;
+  
+  const wallLength = groupWallLength || (isTopBottom ? roomLength : roomWidth);
 
   let posX = 0, posZ = 0, rotY = 0;
   if (wallSide === 'top') { posZ = -roomWidth / 2; }
@@ -22,24 +23,6 @@ function WallWithOpenings({
 
   const color = isWallSelected ? '#ef4444' : (isSelected ? '#3b82f6' : '#94a3b8');
   let currentX = -wallLength / 2;
-
-  const addLabel = (xPos, yPos, text, isOpening = false) => {
-    labelsToRender.push(
-      <Text
-        key={`label-${xPos}-${yPos}`}
-        position={[xPos, yPos, 0]}
-        fontSize={0.3}
-        color={isOpening ? '#b91c1c' : '#1e293b'}
-        anchorX="center"
-        anchorY="bottom"
-        outlineWidth={0.03}
-        outlineColor="#ffffff"
-        fontWeight="bold"
-      >
-        {text}
-      </Text>
-    );
-  };
 
   wallOpenings.forEach((op, index) => {
     let effectiveOffset = op.offset;
@@ -58,10 +41,9 @@ function WallWithOpenings({
       segmentsToRender.push(
         <mesh key={`seg-${index}-left`} position={[midX, height / 2, 0]} castShadow receiveShadow onPointerDown={onClick}>
           <boxGeometry args={[segWidth, height, wallThickness]} />
-          <meshStandardMaterial color={color} />
+          <meshStandardMaterial color={color} transparent opacity={forceVisible ? 0.5 : 1} />
         </mesh>
       );
-      if (segWidth > 0.3) addLabel(midX, height + 0.1, `${(segWidth * 100).toFixed(0)}`);
     }
 
     const opHeight = Math.min(op.height, height);
@@ -87,7 +69,23 @@ function WallWithOpenings({
         </mesh>
       );
     }
-    addLabel(midOpX, height + 0.1, `${(op.width * 100).toFixed(0)}`, true);
+    
+    labelsToRender.push(
+      <Text
+        key={`op-label-${op.id}`}
+        position={[midOpX, height + 0.1, 0]}
+        fontSize={0.3}
+        color="#b91c1c"
+        anchorX="center"
+        anchorY="bottom"
+        outlineWidth={0.03}
+        outlineColor="#ffffff"
+        fontWeight="bold"
+      >
+        {`${(op.width * 100).toFixed(0)}`}
+      </Text>
+    );
+
     currentX = Math.max(currentX, safeEnd);
   });
 
@@ -97,10 +95,27 @@ function WallWithOpenings({
     segmentsToRender.push(
       <mesh key="seg-last" position={[midX, height / 2, 0]} castShadow receiveShadow onPointerDown={onClick}>
         <boxGeometry args={[segWidth, height, wallThickness]} />
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={color} transparent opacity={forceVisible ? 0.5 : 1} />
       </mesh>
     );
-    if (segWidth > 0.3) addLabel(midX, height + 0.1, `${(segWidth * 100).toFixed(0)}`);
+  }
+
+  if (showLabel && groupWallLength > 0) {
+    labelsToRender.push(
+      <Text
+        key="group-label"
+        position={[labelOffset.x, height + 0.5, labelOffset.z]}
+        fontSize={0.4}
+        color="#1e293b"
+        anchorX="center"
+        anchorY="bottom"
+        outlineWidth={0.05}
+        outlineColor="#ffffff"
+        fontWeight="bold"
+      >
+        {`${(groupWallLength * 100).toFixed(0)}`}
+      </Text>
+    );
   }
 
   return <group position={[posX, 0, posZ]} rotation={[0, rotY, 0]}>{segmentsToRender}{labelsToRender}</group>;
@@ -108,6 +123,7 @@ function WallWithOpenings({
 
 function Room({ room, isSelected, selectedWall, onSelect, onSelectWall, allRooms, floorY }) {
   const { name, length, width, height, posX, posZ, openings = [], deletedWalls = [], groupId } = room;
+  const [hoveredSide, setHoveredSide] = useState(null);
 
   if (isNaN(posX) || isNaN(posZ) || isNaN(length) || isNaN(width) || isNaN(height)) return null;
 
@@ -126,36 +142,51 @@ function Room({ room, isSelected, selectedWall, onSelect, onSelectWall, allRooms
   const groupRooms = allRooms.filter(r => r.groupId === groupId);
   const isFirstInGroup = groupRooms.length <= 1 || groupRooms[0].id === room.id;
 
-  const hasNeighbor = (side) => {
-    if (room.showAllWalls) return false;
+  const getWallColor = (side) => {
+    if (isWallSelected(side)) return '#ef4444';
+    if (isSelected) return '#3b82f6';
+    if (hoveredSide === side) return '#60a5fa';
+    return '#94a3b8';
+  };
 
+  // Проверяем наличие соседа
+  const checkNeighbor = (side) => {
+    if (deletedWalls.includes(side)) return false;
     return allRooms.some(other => {
       if (other.id === room.id) return false;
-      if (room.id < other.id) return false;
-
-      const tolerance = 0.1;
-      if (side === 'top') {
-        const myEdge = posZ - width / 2;
-        const otherEdge = other.posZ + other.width / 2;
-        return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(posX - other.posX) < (length + other.length) / 2 - tolerance;
-      }
-      if (side === 'bottom') {
-        const myEdge = posZ + width / 2;
-        const otherEdge = other.posZ - other.width / 2;
-        return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(posX - other.posX) < (length + other.length) / 2 - tolerance;
-      }
-      if (side === 'left') {
-        const myEdge = posX - length / 2;
-        const otherEdge = other.posX + other.length / 2;
-        return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(posZ - other.posZ) < (width + other.width) / 2 - tolerance;
-      }
-      if (side === 'right') {
-        const myEdge = posX + length / 2;
-        const otherEdge = other.posX - other.length / 2;
-        return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(posZ - other.posZ) < (width + other.width) / 2 - tolerance;
-      }
+      if (other.floorId !== room.floorId) return false;
+      const tolerance = 0.15;
+      if (side === 'top') return Math.abs((posZ - width / 2) - (other.posZ + other.width / 2)) < tolerance && Math.abs(posX - other.posX) < (length + other.length) / 2 - 0.05;
+      if (side === 'bottom') return Math.abs((posZ + width / 2) - (other.posZ - other.width / 2)) < tolerance && Math.abs(posX - other.posX) < (length + other.length) / 2 - 0.05;
+      if (side === 'left') return Math.abs((posX - length / 2) - (other.posX + other.length / 2)) < tolerance && Math.abs(posZ - other.posZ) < (width + other.width) / 2 - 0.05;
+      if (side === 'right') return Math.abs((posX + length / 2) - (other.posX - other.length / 2)) < tolerance && Math.abs(posZ - other.posZ) < (width + other.width) / 2 - 0.05;
       return false;
     });
+  };
+
+  const getGroupWallInfo = (side) => {
+    if (groupRooms.length <= 1) return { length: 0, showLabel: false, offset: {x:0, z:0} };
+
+    const validRooms = groupRooms.filter(r => !r.deletedWalls?.includes(side));
+    if (validRooms.length === 0) return { length: 0, showLabel: false, offset: {x:0, z:0} };
+
+    const isTopBottom = side === 'top' || side === 'bottom';
+    const totalLength = validRooms.reduce((sum, r) => sum + (isTopBottom ? r.length : r.width), 0);
+
+    let minCoord = Infinity, maxCoord = -Infinity;
+    validRooms.forEach(r => {
+      const val = isTopBottom ? r.posX : r.posZ;
+      const halfSize = isTopBottom ? r.length / 2 : r.width / 2;
+      minCoord = Math.min(minCoord, val - halfSize);
+      maxCoord = Math.max(maxCoord, val + halfSize);
+    });
+    const centerCoord = (minCoord + maxCoord) / 2;
+
+    const offset = { x: 0, z: 0 };
+    if (isTopBottom) offset.x = centerCoord - posX;
+    else offset.z = centerCoord - posZ;
+
+    return { length: totalLength, showLabel: isFirstInGroup, offset };
   };
 
   return (
@@ -188,20 +219,55 @@ function Room({ room, isSelected, selectedWall, onSelect, onSelectWall, allRooms
 
       {['top', 'bottom', 'left', 'right'].map(side => {
         if (deletedWalls.includes(side)) return null;
-        if (hasNeighbor(side) && !isWallSelected(side)) return null;
+
+        const hasNeighbor = checkNeighbor(side);
+        
+        // 👇 Если у стены есть сосед, мы не рисуем её у второй комнаты (только у первой, чтобы не было дубля)
+        // Но если это вторая комната, мы рисуем невидимую стену для кликов
+        if (hasNeighbor && !isFirstInGroup && !isWallSelected(side) && hoveredSide !== side) {
+          return (
+            <mesh 
+              key={`invisible-${side}`}
+              position={[
+                side === 'left' ? -length / 2 : side === 'right' ? length / 2 : 0,
+                height / 2,
+                side === 'top' ? -width / 2 : side === 'bottom' ? width / 2 : 0
+              ]}
+              rotation={[0, side === 'left' || side === 'right' ? Math.PI / 2 : 0, 0]}
+              onPointerDown={(e) => handleWallClick(e, side)}
+              onPointerOver={(e) => { e.stopPropagation(); setHoveredSide(side); }}
+              onPointerOut={() => setHoveredSide(null)}
+              visible={false}
+            >
+              <boxGeometry args={[side === 'top' || side === 'bottom' ? length : width, height, 0.2]} />
+              <meshBasicMaterial transparent opacity={0} />
+            </mesh>
+          );
+        }
+
+        const wallInfo = getGroupWallInfo(side);
 
         return (
-          <WallWithOpenings
+          <group 
             key={side}
-            roomLength={length}
-            roomWidth={width}
-            height={height}
-            wallSide={side}
-            openings={openings}
-            isSelected={isSelected}
-            isWallSelected={isWallSelected(side)}
-            onClick={(e) => handleWallClick(e, side)}
-          />
+            onPointerOver={(e) => { e.stopPropagation(); setHoveredSide(side); }}
+            onPointerOut={() => setHoveredSide(null)}
+          >
+            <WallWithOpenings
+              roomLength={length}
+              roomWidth={width}
+              height={height}
+              wallSide={side}
+              openings={openings}
+              isSelected={isSelected}
+              isWallSelected={isWallSelected(side)}
+              onClick={(e) => handleWallClick(e, side)}
+              groupWallLength={wallInfo.length}
+              showLabel={wallInfo.showLabel}
+              labelOffset={wallInfo.offset}
+              forceVisible={hasNeighbor && (isWallSelected(side) || hoveredSide === side)} // Делаем прозрачной, если это общая стена
+            />
+          </group>
         );
       })}
 

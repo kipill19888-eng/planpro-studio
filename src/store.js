@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useProjectsStore } from './storeProjects';
 
-// Хелпер для получения комнат активного проекта
 const getActiveRooms = (state) => {
   const activeId = useProjectsStore.getState().activeProjectId;
   return state.projectRooms[activeId] || [];
@@ -12,8 +11,8 @@ export const useHouseStore = create(
   persist(
     (set, get) => ({
       projectRooms: {},
-      projectFloors: {}, // { 'proj-id': [{ id: 'floor-1', name: '1 Этаж' }] }
-      activeFloorId: 'floor-1', // По умолчанию первый этаж
+      projectFloors: {},
+      activeFloorId: 'floor-1',
       selectedRoomId: null,
       selectedWall: null,
       isolateRoomId: null,
@@ -21,7 +20,6 @@ export const useHouseStore = create(
       past: [],
       future: [],
 
-      // --- УПРАВЛЕНИЕ ЭТАЖАМИ ---
       setActiveFloorId: (id) => set({ activeFloorId: id }),
 
       addFloor: () => {
@@ -41,11 +39,9 @@ export const useHouseStore = create(
       removeFloor: (floorId) => {
         const activeId = useProjectsStore.getState().activeProjectId;
         const floors = get().projectFloors[activeId] || [];
-        if (floors.length <= 1) return; // Нельзя удалить единственный этаж
+        if (floors.length <= 1) return;
 
         const newFloors = floors.filter(f => f.id !== floorId);
-        
-        // Удаляем все комнаты этого этажа
         const currentRooms = getActiveRooms(get());
         const newRooms = currentRooms.filter(r => r.floorId !== floorId);
 
@@ -59,7 +55,6 @@ export const useHouseStore = create(
         });
       },
 
-      // --- ИСТОРИЯ ---
       saveHistory: () => {
         const currentRooms = getActiveRooms(get());
         set((state) => ({
@@ -116,14 +111,12 @@ export const useHouseStore = create(
 
       addFirstRoom: (roomParams) => {
         get().saveHistory();
-        const activeId = useProjectsStore.getState().activeProjectId;
         const activeFloorId = get().activeFloorId;
-        
         const newId = `room-${Date.now()}`;
         get().setRooms([{
           id: newId,
           groupId: `group-${Date.now()}`,
-          floorId: activeFloorId, // 👈 Привязка к этажу
+          floorId: activeFloorId,
           name: roomParams.name || 'Комната 1',
           length: roomParams.length || 4,
           width: roomParams.width || 3,
@@ -145,7 +138,7 @@ export const useHouseStore = create(
         get().setRooms([...currentRooms, {
           id: newId,
           groupId: `group-${Date.now()}`,
-          floorId: activeFloorId, // 👈 Привязка к этажу
+          floorId: activeFloorId,
           name: roomParams.name || 'Новая комната',
           length: roomParams.length || 4,
           width: roomParams.width || 3,
@@ -193,19 +186,128 @@ export const useHouseStore = create(
 
       deleteWall: (roomId, wallSide) => {
         get().saveHistory();
-        get().setRooms(getActiveRooms(get()).map(r => {
+        const currentRooms = getActiveRooms(get());
+        const room = currentRooms.find(r => r.id === roomId);
+        if (!room) return;
+
+        let oppositeSide = null;
+        if (wallSide === 'top') oppositeSide = 'bottom';
+        if (wallSide === 'bottom') oppositeSide = 'top';
+        if (wallSide === 'left') oppositeSide = 'right';
+        if (wallSide === 'right') oppositeSide = 'left';
+
+        const tolerance = 0.2;
+
+        const neighbor = currentRooms.find(other => {
+          if (other.id === roomId) return false;
+          
+          if (wallSide === 'top') {
+            const myEdge = room.posZ - room.width / 2;
+            const otherEdge = other.posZ + other.width / 2;
+            return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posX - other.posX) < (room.length + other.length) / 2 - 0.1;
+          }
+          if (wallSide === 'bottom') {
+            const myEdge = room.posZ + room.width / 2;
+            const otherEdge = other.posZ - other.width / 2;
+            return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posX - other.posX) < (room.length + other.length) / 2 - 0.1;
+          }
+          if (wallSide === 'left') {
+            const myEdge = room.posX - room.length / 2;
+            const otherEdge = other.posX + other.length / 2;
+            return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posZ - other.posZ) < (room.width + other.width) / 2 - 0.1;
+          }
+          if (wallSide === 'right') {
+            const myEdge = room.posX + room.length / 2;
+            const otherEdge = other.posX - other.length / 2;
+            return Math.abs(myEdge - otherEdge) < tolerance && Math.abs(room.posZ - other.posZ) < (room.width + other.width) / 2 - 0.1;
+          }
+          return false;
+        });
+
+        // 👇 Если нашли соседа, объединяем их группы (чтобы считались одной комнатой)
+        const mergedGroupId = neighbor ? neighbor.groupId : room.groupId;
+
+        get().setRooms(currentRooms.map(r => {
           if (r.id === roomId) {
-            return { ...r, showAllWalls: false, deletedWalls: [...new Set([...(r.deletedWalls || []), wallSide])] };
+            return { 
+              ...r, 
+              groupId: mergedGroupId, // Присваиваем общий groupId
+              showAllWalls: false, 
+              deletedWalls: [...new Set([...(r.deletedWalls || []), wallSide])] 
+            };
+          }
+          if (neighbor && r.id === neighbor.id) {
+            return { 
+              ...r, 
+              groupId: mergedGroupId, // Присваиваем общий groupId
+              showAllWalls: false, 
+              deletedWalls: [...new Set([...(r.deletedWalls || []), oppositeSide])] 
+            };
           }
           return r;
         }));
       },
 
+      hideWallsOnContact: (roomId) => {
+        const currentRooms = getActiveRooms(get());
+        const room = currentRooms.find(r => r.id === roomId);
+        if (!room) return;
+
+        const tolerance = 0.15;
+        let updatedRoom = { ...room };
+
+        currentRooms.forEach(other => {
+          if (other.id === roomId) return;
+
+          if (Math.abs((room.posX + room.length / 2) - (other.posX - other.length / 2)) < tolerance && 
+              Math.abs(room.posZ - other.posZ) < (room.width + other.width) / 2) {
+            updatedRoom.deletedWalls = [...new Set([...(updatedRoom.deletedWalls || []), 'right'])];
+          }
+          if (Math.abs((room.posX - room.length / 2) - (other.posX + other.length / 2)) < tolerance && 
+              Math.abs(room.posZ - other.posZ) < (room.width + other.width) / 2) {
+            updatedRoom.deletedWalls = [...new Set([...(updatedRoom.deletedWalls || []), 'left'])];
+          }
+          if (Math.abs((room.posZ + room.width / 2) - (other.posZ - other.width / 2)) < tolerance && 
+              Math.abs(room.posX - other.posX) < (room.length + other.length) / 2) {
+            updatedRoom.deletedWalls = [...new Set([...(updatedRoom.deletedWalls || []), 'bottom'])];
+          }
+          if (Math.abs((room.posZ - room.width / 2) - (other.posZ + other.width / 2)) < tolerance && 
+              Math.abs(room.posX - other.posX) < (room.length + other.length) / 2) {
+            updatedRoom.deletedWalls = [...new Set([...(updatedRoom.deletedWalls || []), 'top'])];
+          }
+        });
+
+        get().setRooms(currentRooms.map(r => r.id === roomId ? updatedRoom : r));
+      },
+
       restoreWall: (roomId, wallSide) => {
         get().saveHistory();
-        get().setRooms(getActiveRooms(get()).map(r => {
+        const currentRooms = getActiveRooms(get());
+        const room = currentRooms.find(r => r.id === roomId);
+        if (!room) return;
+
+        let oppositeSide = null;
+        if (wallSide === 'top') oppositeSide = 'bottom';
+        if (wallSide === 'bottom') oppositeSide = 'top';
+        if (wallSide === 'left') oppositeSide = 'right';
+        if (wallSide === 'right') oppositeSide = 'left';
+
+        get().setRooms(currentRooms.map(r => {
           if (r.id === roomId) {
             return { ...r, deletedWalls: (r.deletedWalls || []).filter(w => w !== wallSide) };
+          }
+          if (r.deletedWalls && r.deletedWalls.includes(oppositeSide)) {
+            const neighbor = currentRooms.find(n => n.id === r.id);
+            const tolerance = 0.2;
+            let isNeighbor = false;
+            if (wallSide === 'top' && Math.abs((room.posZ - room.width / 2) - (neighbor.posZ + neighbor.width / 2)) < tolerance) isNeighbor = true;
+            if (wallSide === 'bottom' && Math.abs((room.posZ + room.width / 2) - (neighbor.posZ - neighbor.width / 2)) < tolerance) isNeighbor = true;
+            if (wallSide === 'left' && Math.abs((room.posX - room.length / 2) - (neighbor.posX + neighbor.length / 2)) < tolerance) isNeighbor = true;
+            if (wallSide === 'right' && Math.abs((room.posX + room.length / 2) - (neighbor.posX - neighbor.length / 2)) < tolerance) isNeighbor = true;
+            
+            if (isNeighbor) {
+              return { ...r, deletedWalls: r.deletedWalls.filter(w => w !== oppositeSide) };
+            }
           }
           return r;
         }));
@@ -326,7 +428,7 @@ export const useHouseStore = create(
     }),
     {
       name: 'planpro-house-storage',
-      version: 3, // 👈 Подняли версию для миграции
+      version: 3,
       migrate: (persistedState, version) => {
         if (version === 0 || version === 1) {
           return {
@@ -336,7 +438,6 @@ export const useHouseStore = create(
           };
         }
         if (version === 2) {
-          // Миграция со 2 версии (где были комнаты, но не было этажей)
           const oldRooms = persistedState.projectRooms || {};
           const newRooms = {};
           Object.keys(oldRooms).forEach(projId => {
@@ -356,21 +457,18 @@ export const useHouseStore = create(
   )
 );
 
-// Хук для получения всех комнат текущего проекта (без фильтрации по этажу)
 export const useRooms = () => {
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const allProjectRooms = useHouseStore((state) => state.projectRooms);
   return allProjectRooms[activeProjectId] || [];
 };
 
-// Хук для получения комнат ТОЛЬКО активного этажа (или всех, если этаж не выбран)
 export const useActiveFloorRooms = () => {
   const rooms = useRooms();
   const activeFloorId = useHouseStore((state) => state.activeFloorId);
   return activeFloorId === 'all' ? rooms : rooms.filter(r => r.floorId === activeFloorId || !r.floorId);
 };
 
-// Хук для получения этажей текущего проекта
 export const useFloors = () => {
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const projectFloors = useHouseStore((state) => state.projectFloors);

@@ -13,20 +13,17 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
 
   return (
     <>
-      {/* Затемнение фона */}
       <div 
         className={`fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
-      {/* Само меню */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-[220px] md:w-64 bg-sidebar h-screen flex flex-col text-gray-400 flex-shrink-0 print:hidden
         transition-transform duration-300 md:relative md:translate-x-0 md:sticky md:top-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         
-        {/* Шапка с лого и крестиком */}
         <div className="px-4 py-4 md:p-5 flex items-center justify-between text-white border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
             <Cube className="text-blue-500 w-6 h-6 md:w-8 md:h-8 shrink-0" />
@@ -35,11 +32,7 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
               <div className="text-[9px] md:text-[10px] text-gray-400">Studio</div>
             </div>
           </div>
-          {/* Кнопка закрытия (только на мобильных) */}
-          <button 
-            onClick={onClose} 
-            className="md:hidden text-gray-400 hover:text-white p-1.5 bg-white/5 rounded-md transition"
-          >
+          <button onClick={onClose} className="md:hidden text-gray-400 hover:text-white p-1 bg-white/5 rounded-md">
             <X size={20} />
           </button>
         </div>
@@ -70,11 +63,11 @@ export default function Sidebar({ onMenuClick, currentScreen, isOpen, onClose })
           
           <div className="my-1 md:my-2 border-t border-white/5 mx-2"></div>
 
-          <NavItem icon={<Cube size={14} />} text="3D планировщик" active={currentScreen === 'projects'} onClick={() => onMenuClick('projects')} />
+          {/* 👇 ИЗМЕНЕНО НА "2D планировщик" */}
+          <NavItem icon={<Cube size={14} />} text="2D планировщик" active={currentScreen === 'projects'} onClick={() => onMenuClick('projects')} />
           <NavItem icon={<Settings size={14} />} text="Настройки" active={currentScreen === 'settings'} onClick={() => onMenuClick('settings')} />
         </nav>
 
-        {/* Блок с тарифом */}
         <div className="mx-2 md:m-4 p-2 md:p-4 bg-white/5 border border-white/10 rounded-lg md:rounded-xl shrink-0">
           <div className="flex justify-between items-center mb-2">
             <div className="text-yellow-500 font-bold flex items-center gap-1 md:gap-2 text-xs md:text-base">

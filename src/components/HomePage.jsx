@@ -1,11 +1,17 @@
 import { useState } from 'react';
-import { Folder, Calculator, FileText, Plus, ArrowRight, Home as HomeIcon, Clock, Trash2, Layers, Ruler, CheckCircle2, Box, Sparkles } from 'lucide-react';
+import { Folder, Calculator, FileText, Plus, ArrowRight, Home as HomeIcon, Clock, Trash2, Layers, Ruler, CheckCircle2, Box, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { useProjectsStore } from '../storeProjects';
 import { useHouseStore } from '../store';
 import { useUserStore } from '../storeUser';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
 import { useToastStore } from '../storeToast';
+
+const DEMO_IMAGES = [
+  { url: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=800&auto=format&fit=crop', title: 'Гостиная' },
+  { url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop', title: 'Дом с бассейном' },
+  { url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?q=80&w=800&auto=format&fit=crop', title: 'Спальня' },
+];
 
 export default function HomePage() {
   const { projects, activeProjectId, setActiveProject, addProject, removeProject } = useProjectsStore();
@@ -41,10 +47,6 @@ export default function HomePage() {
       addToast('Демо-режим истек. Купите тариф для редактирования.', 'error');
       return;
     }
-    if (projects.length === 1) {
-      addToast('Нельзя удалить единственный проект', 'error');
-      return;
-    }
     setProjectToDelete(project);
   };
 
@@ -55,11 +57,34 @@ export default function HomePage() {
     return d.toLocaleDateString('ru-RU');
   };
 
+  const GalleryBlock = () => (
+    <div className="mt-12 bg-white dark:bg-[#1e293b] rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 md:p-8">
+      <div className="flex items-center gap-2 mb-6">
+        <ImageIcon className="text-primary" size={24} />
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Примеры наших работ</h2>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {DEMO_IMAGES.map((img, idx) => (
+          <div key={idx} className="relative rounded-xl overflow-hidden shadow-md group h-56">
+            <img 
+              src={img.url} 
+              alt={img.title} 
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+              <span className="text-white font-bold text-lg">{img.title}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   if (!hasRealProjects) {
     return (
       <div className="flex-1 overflow-y-auto animate-fade-in bg-gradient-to-b from-gray-50 to-white dark:from-[#0f172a] dark:to-[#1e293b]">
         
-        <div className="max-w-6xl mx-auto px-4 py-16 md:py-24 text-center">
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-bold mb-6">
             <Sparkles size={16} /> Личный кабинет Мастера
           </div>
@@ -70,7 +95,7 @@ export default function HomePage() {
           </h1>
           
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
-            Создавайте 3D-планы, точно рассчитывайте материалы и формируйте сметы в PDF. 
+            Создавайте 2D-планы, точно рассчитывайте материалы и формируйте сметы в PDF. 
             Всё в одном месте, без сложных настроек.
           </p>
 
@@ -94,18 +119,18 @@ export default function HomePage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
-            <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm text-left">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 text-left">
+            <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center mb-4">
                 <Box size={24} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">3D-Планировщик</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">2D-Планировщик</h3>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Рисуйте комнаты, добавляйте окна и двери. Поддерживается мультиэтажность и 2D-режим.
+                Рисуйте комнаты, добавляйте окна и двери. Точные размеры и удобное управление.
               </p>
             </div>
 
-            <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm text-left">
+            <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center mb-4">
                 <Calculator size={24} />
               </div>
@@ -115,7 +140,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm text-left">
+            <div className="bg-white dark:bg-[#1e293b] p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
               <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center mb-4">
                 <FileText size={24} />
               </div>
@@ -126,7 +151,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="bg-gray-900 dark:bg-black rounded-3xl p-8 md:p-12 text-left text-white shadow-2xl">
+          <GalleryBlock />
+
+          <div className="mt-16 bg-gray-900 dark:bg-black rounded-3xl p-8 md:p-12 text-left text-white shadow-2xl">
             <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center">Всё, что нужно для ремонта</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-start gap-4">
@@ -201,18 +228,18 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div onClick={() => navigate('/project')} className="bg-white dark:bg-[#1e293b] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition cursor-pointer group">
+        <div onClick={() => navigate('/project')} className="bg-white dark:bg-[#1e293b] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition cursor-pointer group transition-transform duration-300 hover:-translate-y-1">
           <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 text-primary rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
             <HomeIcon size={28} />
           </div>
-          <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-2">3D Планировщик</h3>
+          <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-2">2D Планировщик</h3>
           <p className="text-base text-gray-600 dark:text-gray-400 mb-4">Создавайте планировки и визуализируйте ремонт.</p>
           <div className="flex items-center text-primary text-base font-medium">
             Открыть проект <ArrowRight size={18} className="ml-1" />
           </div>
         </div>
 
-        <div onClick={() => navigate('/calc/finishing')} className="bg-white dark:bg-[#1e293b] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition cursor-pointer group">
+        <div onClick={() => navigate('/calc/finishing')} className="bg-white dark:bg-[#1e293b] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition cursor-pointer group transition-transform duration-300 hover:-translate-y-1">
           <div className="w-14 h-14 bg-green-50 dark:bg-green-900/30 text-green-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
             <Calculator size={28} />
           </div>
@@ -223,7 +250,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div onClick={() => navigate('/estimate')} className="bg-white dark:bg-[#1e293b] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition cursor-pointer group">
+        <div onClick={() => navigate('/estimate')} className="bg-white dark:bg-[#1e293b] rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition cursor-pointer group transition-transform duration-300 hover:-translate-y-1">
           <div className="w-14 h-14 bg-purple-50 dark:bg-purple-900/30 text-purple-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition">
             <FileText size={28} />
           </div>
@@ -235,7 +262,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1e293b] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-[#1e293b] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden mb-10">
         <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-[#0f172a]/50">
           <h2 className="font-bold text-gray-900 dark:text-white text-lg flex items-center gap-2"><Clock size={20} /> Мои проекты</h2>
         </div>
@@ -254,7 +281,7 @@ export default function HomePage() {
               <div 
                 key={p.id}
                 onClick={() => handleOpenProject(p.id)}
-                className={`relative p-4 rounded-xl border transition cursor-pointer group ${
+                className={`project-card animate-card relative p-4 rounded-xl border transition cursor-pointer group ${
                   p.id === activeProjectId ? 'border-primary bg-blue-50/30 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
               >
@@ -297,6 +324,8 @@ export default function HomePage() {
           })}
         </div>
       </div>
+
+      <GalleryBlock />
 
       <ConfirmModal 
         isOpen={!!projectToDelete}

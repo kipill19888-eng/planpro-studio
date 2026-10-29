@@ -14,10 +14,9 @@ export default function UpgradeModal({ isOpen, onClose }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity animate-fade-in">
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-[#1e293b] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative animate-modal"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Шапка с градиентом */}
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 text-center relative">
           <button 
             onClick={onClose} 
@@ -34,22 +33,21 @@ export default function UpgradeModal({ isOpen, onClose }) {
           </p>
         </div>
 
-        {/* Список преимуществ */}
-        <div className="p-6 bg-white">
+        <div className="p-6 bg-white dark:bg-[#1e293b]">
           <ul className="space-y-3 mb-6">
-            <li className="flex items-center gap-3 text-sm text-gray-700">
+            <li className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
               <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                 <Check size={12} className="text-green-600" />
               </div>
               Неограниченное число проектов
             </li>
-            <li className="flex items-center gap-3 text-sm text-gray-700">
+            <li className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
               <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                 <Check size={12} className="text-green-600" />
               </div>
               Экспорт смет в PDF без ограничений
             </li>
-            <li className="flex items-center gap-3 text-sm text-gray-700">
+            <li className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300">
               <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                 <Check size={12} className="text-green-600" />
               </div>
